@@ -10,7 +10,7 @@ import math
 
 __all__ = ['resnet8', 'resnet14', 'resnet20', 'resnet26', 'resnet32', 'resnet44',
            'resnet56', 'resnet110', 'resnet1202', 'resnet164', 'resnet1001',
-           'preact_resnet110','preact_resnet64','preact_resnet1001']
+           'preact_resnet110','preact_resnet164','preact_resnet1001']
 
 def conv3x3(in_planes, out_planes, stride=1):
     return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride, padding=1, bias=False)
