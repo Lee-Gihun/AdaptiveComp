@@ -30,6 +30,7 @@ SCHEDULER = {'step': lr_scheduler.StepLR,
              'cosine': lr_scheduler.CosineAnnealingLR}
 
 MODEL = {
+    'ResNet8' : resnet8,
     'ResNet10' : resnet10,
     'ResNet18': resnet18,
     'ResNet101': resnet101,
