@@ -206,10 +206,10 @@ class ResNet_Cifar(nn.Module):
         x = self.layer3(x)
 
         x = self.avgpool(x)
-        before_output = x.view(x.size(0), -1)
+        features = x.view(x.size(0), -1)
         x = self.fc(before_output)
 
-        return [before_output], x
+        return x
 
 
 class PreAct_ResNet_Cifar(nn.Module):
@@ -258,10 +258,10 @@ class PreAct_ResNet_Cifar(nn.Module):
         x = self.bn(x)
         x = self.relu(x)
         x = self.avgpool(x)
-        before_output = x.view(x.size(0), -1)
+        features = x.view(x.size(0), -1)
         x = self.fc(before_output)
 
-        return [before_output], x
+        return x
 
 
 
