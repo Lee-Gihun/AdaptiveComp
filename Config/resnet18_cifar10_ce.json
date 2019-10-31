@@ -1,0 +1,64 @@
+{
+    "data": {
+        "dataset": "cifar10",
+        "batch_size": 128,
+        "valid_size": 5000,
+        "fixed_valid": true,
+        "root": "./data/cifar10/"
+    },    
+    "criterion": {
+        "algo": "cross_entropy",
+        "param": {
+        }
+    },
+    "optimizer": {
+        "algo": "sgd",
+        "param": {
+            "lr": 0.1,
+            "weight_decay": 5e-4,
+            "momentum": 0.9
+        }
+    },
+    "scheduler": {
+        "enabled": true,
+        "type" : "multistep",
+        "param" : {
+            "milestones" : [100, 200],
+            "gamma" : 0.1
+        }
+    },
+    "trainhandler": {
+        "seed": 2020,
+        "device": "cuda:1",
+        "path": "./results",
+        "name": "ResNet18_ce_cifar10",
+        "num_epochs" : 250,
+        "precision": 32,
+        "warm_up": {
+            "enabled" : false,
+            "num_epochs": 15,
+            "criterion" : {
+                "algo" : "cross_entropy",
+                "param" : {
+                }
+            },
+            "optimizer": {
+                "algo": "sgd",
+                "param": {
+                    "lr": 0.1,
+                    "weight_decay": 5e-4,
+                    "momentum" : 0.9
+                }
+            },
+            "scheduler": {
+                "enabled" : false
+            }
+        }
+    },
+    "model": {
+        "param": {
+            "model_type": "ResNet18",
+            "num_classes": 10
+        }
+    }
+}
