@@ -6,7 +6,7 @@ class SL_Pair(nn.Module):
         super(SL_Pair, self).__init__()
         self.SmallNet = SmallNet.to(device)
         self.LargeNet = LargeNet.to(device)
-        self.num_classes = 100
+        self.num_classes = num_classes
         self._exit_cond = LogitCond(exit_cond)
         self.device = device
     
