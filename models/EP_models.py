@@ -13,9 +13,9 @@ class EP_ResNet(ResNet):
         self.start_mark = start_mark
 
         self.exit_module = nn.ModuleList(
-            [SCAN(channels=64, stride=(2,2,2)),
-             SCAN(channels=128, stride=(2,2,1)),
-             SCAN(channels=256, stride=(1,2,1))])
+            [EP(channels=64, stride=(2,2,2)),
+             EP(channels=128, stride=(2,2,1)),
+             EP(channels=256, stride=(1,2,1))])
 
         self.exit_cond = [LogitCond(1), LogitCond(1), LogitCond(1)]
 
@@ -27,6 +27,8 @@ class EP_ResNet(ResNet):
     
     def _early_predictor(self, x, empty_indices, idx):
         exit, features = self.exit_module[idx](x)
+        print(exit.shape)
+        print(features.shape)
         with torch.no_grad():
             cond_up, cond_down = self.exit_cond[idx](exit)
             
@@ -81,17 +83,19 @@ class EP_ResNet(ResNet):
             return (exit1, exit2, exit3, exit4), (features1, features2, features3, features4)
 
 
-def _resnet(arch, block, layers, **kwargs):
-    model = EP_ResNet(block, layers, **kwargs)
-    return model
+def _resnet(block, layers, EP, **kwargs):
+    if EP == 'SCAN':
+        return EP_ResNet(block, layers, SCAN, **kwargs)
+    elif EP == 'EPE':
+        return EP_ResNet(block, layers, EPE, **kwargs)
 
 def ep_resnet18(**kwargs):
-    return _resnet('resnet18', BasicBlock, [2, 2, 2, 2], **kwargs)
+    return _resnet(BasicBlock, [2, 2, 2, 2], **kwargs)
 
 
 def ep_resnet34(**kwargs):
-    return _resnet('resnet34', BasicBlock, [3, 4, 6, 3], **kwargs)
+    return _resnet(BasicBlock, [3, 4, 6, 3], **kwargs)
 
 
 def ep_resnet50(**kwargs):
-    return _resnet('resnet50', Bottleneck, [3, 4, 6, 3], **kwargs)
+    return _resnet(Bottleneck, [3, 4, 6, 3], **kwargs)

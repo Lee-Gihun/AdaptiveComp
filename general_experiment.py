@@ -20,7 +20,8 @@ CRITERION = {'mse': nn.MSELoss,
              'cross_entropy': nn.CrossEntropyLoss,
              'soft_smoothing': SoftSmoothingLoss,
              'label_smoothing': LabelSmoothingLoss,
-             'soft_label_smoothing': SoftLabelSmoothingLoss}
+             'soft_label_smoothing': SoftLabelSmoothingLoss,
+            'rand_smoothing': RandSmoothingLoss}
 
 OPTIMIZER = {'sgd': optim.SGD,
              'adam': optim.Adam}
@@ -95,7 +96,9 @@ def _get_trainhanlder(opt, model, dataloaders, dataset_sizes, train_handler=None
                                  dataset_sizes, 
                                  criterion, 
                                  optimizer, 
-                                 scheduler, 
+                                 scheduler,
+                                 mixup=opt.trainhandler.mixup,
+                                 rand_smooth=opt.trainhandler.rand_smooth,
                                  device=opt.trainhandler.device, 
                                  path=opt.trainhandler.path)
     

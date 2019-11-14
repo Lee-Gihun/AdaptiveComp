@@ -31,9 +31,11 @@
         "seed": 2020,
         "device": "cuda:1",
         "path": "./results",
-        "name": "ResNet18_ce_cifar10",
+        "name": "ResNet18_cifar10",
         "num_epochs" : 250,
         "precision": 32,
+        "rand_smooth": 0.0,
+        "mixup": false,
         "warm_up": {
             "enabled" : false,
             "num_epochs": 15,

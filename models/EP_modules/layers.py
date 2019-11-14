@@ -132,9 +132,9 @@ class EPE(nn.Module):
         # conv
         x = self._relu(self._bn0(self._expansion_conv(x)))
         x = self._relu(self._bn1(self._depthwise_conv(x)))
-        x = self._relu(self._bn2(self._projection_conv(x)))
+        features = self._relu(self._bn2(self._projection_conv(x)))
 
         # classifier
-        features = self._globalavgpool(x)
+        x = self._globalavgpool(features)
         x = self._shallow_classifier(x).squeeze()
         return x, features
