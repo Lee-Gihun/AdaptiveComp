@@ -57,7 +57,6 @@ class SCAN(nn.Module):
     """
     SCAN
     """
-    
     def __init__(self, channels, stride=(1,1,1), final_channels=512, num_classes=100):
         super(SCAN, self).__init__()
         
@@ -101,7 +100,6 @@ class SCAN(nn.Module):
         return x, features
     
     
-    
 class EPE(nn.Module):
     """
     EPE Module
@@ -138,3 +136,4 @@ class EPE(nn.Module):
         x = self._globalavgpool(features)
         x = self._shallow_classifier(x).squeeze()
         return x, features
+    
