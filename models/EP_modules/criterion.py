@@ -17,11 +17,11 @@ class EPELoss(nn.Module):
         exit, feature = outputs
         
         total_loss = None
-        
-        for i in range(len(outputs)):
+
+        for i in range(len(exit)):
             loss = (1-self.alpha)*self.CE(exit[i], target)
             if self.kl:
-                loss += self.alpha*self.KL(exit[i], exit[-1])
+                loss += self.alpha*self.KL(exit[i].softmax(dim=0), exit[-1].softmax(dim=0))
             
             if self.mse:
                 loss += self.lamb*self.MSE(feature[i], feature[-1])
@@ -30,6 +30,6 @@ class EPELoss(nn.Module):
                 total_loss = loss
             else:
                 total_loss += loss
-        
+        print(total_loss)
         return total_loss
     
