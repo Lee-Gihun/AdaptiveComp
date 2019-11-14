@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 
+
 class SL_Pair(nn.Module):
     def __init__(self, SmallNet, LargeNet, num_classes=100, exit_cond=0, device='cuda:0'):
         super(SL_Pair, self).__init__()
@@ -31,6 +32,7 @@ class SL_Pair(nn.Module):
         
         return outputs, mark
 
+    
 class LogitCond(nn.Module):
     """
     from the softmax outputs, decides whether the samples are above or below threshold.
