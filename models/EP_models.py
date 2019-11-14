@@ -8,14 +8,14 @@ import copy
 __all__ = ['ep_resnet18', 'ep_resnet34', 'ep_resnet50']
 
 class EP_ResNet(ResNet):
-    def __init__(self, block, layers, EP=None, start_mark=0, num_classes=100):
+    def __init__(self, block, layers, exit_module=None, start_mark=0, num_classes=100):
         super(EP_ResNet, self).__init__(block, layers, num_classes)
         self.start_mark = start_mark
 
         self.exit_module = nn.ModuleList(
-            [EP(channels=64, stride=(2,2,2)),
-             EP(channels=128, stride=(2,2,1)),
-             EP(channels=256, stride=(1,2,1))])
+            [exit_module(channels=64, stride=(2,2,2)),
+             exit_module(channels=128, stride=(2,2,1)),
+             exit_module(channels=256, stride=(1,2,1))])
 
         self.exit_cond = [LogitCond(1), LogitCond(1), LogitCond(1)]
 
@@ -78,15 +78,16 @@ class EP_ResNet(ResNet):
             return outputs, mark
         
         else:
-            return (exit1, exit2, exit3, exit4), (features1, features2, features3, features4)
+            return [exit1, exit2, exit3, exit4], [features1, features2, features3, features4]
 
 
-def _resnet(block, layers, EP, **kwargs):
-    if EP == 'SCAN':
+def _resnet(block, layers, exit_module, **kwargs):
+    if exit_module == 'scan':
         return EP_ResNet(block, layers, SCAN, **kwargs)
-    elif EP == 'EPE':
+    elif exit_module == 'epe':
         return EP_ResNet(block, layers, EPE, **kwargs)
 
+    
 def ep_resnet18(**kwargs):
     return _resnet(BasicBlock, [2, 2, 2, 2], **kwargs)
 
