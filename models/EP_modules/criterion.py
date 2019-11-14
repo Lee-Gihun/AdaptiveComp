@@ -30,6 +30,6 @@ class EPELoss(nn.Module):
                 total_loss = loss
             else:
                 total_loss += loss
-        print(total_loss)
+
         return total_loss
     
