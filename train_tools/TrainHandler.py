@@ -11,7 +11,7 @@ import os
 __all__ = ['TrainHandler']
 
 class TrainHandler():
-    def __init__(self, model, dataloaders, dataset_sizes, criterion, optimizer, scheduler=None, device=None, path='./results', mixup=False, alpha=1.0, precision=32, prune=False, early_exit=False):
+    def __init__(self, model, dataloaders, dataset_sizes, criterion, optimizer, scheduler=None, device=None, path='./results', mixup=False, alpha=1.0, precision=32, prune=False, early_exit=False, rand_smooth=0.0):
         # If device is None, get default device
         if device == None:
             self.device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
@@ -32,6 +32,7 @@ class TrainHandler():
         self.alpha         = alpha
         self.prune         = prune
         self.early_exit    = early_exit
+        self.rand_smooth   = rand_smooth
         
         # Set model precision if precision is specified
         self.precision = precision
@@ -142,7 +143,19 @@ class TrainHandler():
         mixed_x = lam * x + (1 - lam) * x[index, :]
         y_a, y_b = y, y[index]
         return mixed_x, y_a, y_b, lam
-
+    
+    def __randsmooth_data(self, batch_size, k):
+        '''Returns random tensor with (batch_size * k)  '''
+        size = int(batch_size * k)
+        if size == 0:
+            size = 1 # confirm at list 1 randsample exists
+        
+        with torch.no_grad():
+            # rand_sample = torch.randint(255, (size, 3, 32, 32)).float()/255
+            rand_sample = torch.randn(size, 3, 32, 32)
+            rand_sample = rand_sample*1.103-0.2512
+        
+        return rand_sample
 
     def __mixup_criterion(self, criterion, pred, y_a, y_b, lam):
         return lam * criterion(pred, y_a) + (1 - lam) * criterion(pred, y_b)
@@ -160,16 +173,35 @@ class TrainHandler():
 
         for inputs, labels in self.dataloaders[phase]:
             inputs = inputs.to(self.device)
-            labels = labels.to(self.device)
+            labels = labels.to(self.device)           
             
             if self.precision == 16:
                 inputs = inputs.type(torch.HalfTensor)
                 inputs = inputs.to(self.device)
-                        
+            
+            if self.rand_smooth != 0.0:
+                rand_data = self.__randsmooth_data(inputs.size(0), self.rand_smooth)
+                rand_data = rand_data.to(self.device)
+                rand_label = torch.zeros(rand_data.size(0)).fill_(-1).long()
+                rand_label = rand_label.to(self.device)
+                
+                inputs = torch.cat((inputs, rand_data), dim=0)
+                labels = torch.cat((labels, rand_label), dim=0)
+
+                
             # Zero out parameter gradients
             self.optimizer.zero_grad()
 
             with torch.set_grad_enabled(phase == 'train'):
+                # Forward pass
+                #outputs = self.model(inputs)
+                
+                #if self.rand_smooth != 0.0:
+                #    loss = self.criterion(outputs, labels, rand_data.size(0))
+                #else:
+                #    loss = self.criterion(outputs, labels)
+                #preds = self.prediction(outputs)
+                
                 # Forward pass
                 if not self.mixup or phase != 'train':
                     outputs = self.model(inputs)
@@ -225,8 +257,7 @@ class TrainHandler():
 
         for inputs, labels in self.dataloaders['test']:
             inputs = inputs.to(self.device)
-            labels = labels.to(self.device)
-            
+            labels = labels.to(self.device)        
                         
             if self.precision == 16:
                 inputs = inputs.type(torch.HalfTensor)
@@ -240,6 +271,7 @@ class TrainHandler():
                 outputs = self.model(inputs)
                 preds = self.prediction(outputs)
                 loss = self.criterion(outputs, labels)
+                    
                 
                 if self.early_exit:
                     preds, exit_mark = preds[0], preds[1]
