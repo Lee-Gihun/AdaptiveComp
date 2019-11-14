@@ -27,8 +27,6 @@ class EP_ResNet(ResNet):
     
     def _early_predictor(self, x, empty_indices, idx):
         exit, features = self.exit_module[idx](x)
-        print(exit.shape)
-        print(features.shape)
         with torch.no_grad():
             cond_up, cond_down = self.exit_cond[idx](exit)
             
