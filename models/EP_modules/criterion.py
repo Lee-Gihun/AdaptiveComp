@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 
+__all__ = ['EPELoss']
 
 class EPELoss(nn.Module):
     def __init__(self, lamb=0.5, alpha=5e-7, kl=True, mse=True):

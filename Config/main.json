@@ -1,13 +1,12 @@
 {
     "data": {
-        "dataset": "cifar10",
+        "dataset": "cifar100",
+        "root": "./data/cifar100/",
         "batch_size": 128,
-        "valid_size": 5000,
-        "fixed_valid": true,
-        "root": "./data/cifar10/"
+        "valid_size": 5000
     },    
     "criterion": {
-        "algo": "cross_entropy",
+        "algo": "epe",
         "param": {
         }
     },
@@ -31,36 +30,15 @@
         "seed": 2020,
         "device": "cuda:1",
         "path": "./results",
-        "name": "ResNet18_cifar10",
-        "num_epochs" : 250,
-        "precision": 32,
-        "rand_smooth": 0.0,
-        "mixup": false,
-        "warm_up": {
-            "enabled" : false,
-            "num_epochs": 15,
-            "criterion" : {
-                "algo" : "cross_entropy",
-                "param" : {
-                }
-            },
-            "optimizer": {
-                "algo": "sgd",
-                "param": {
-                    "lr": 0.1,
-                    "weight_decay": 5e-4,
-                    "momentum" : 0.9
-                }
-            },
-            "scheduler": {
-                "enabled" : false
-            }
-        }
+        "name": "ep_resnet18_cifar100_epe",
+        "num_epochs" : 250
     },
     "model": {
         "param": {
-            "model_type": "ResNet18",
-            "num_classes": 10
+            "model_type": "ep_resnet18",
+            "exit_module" : "epe",
+            "start_mark": 0,
+            "num_classes": 100
         }
     }
 }
