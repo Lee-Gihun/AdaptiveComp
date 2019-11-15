@@ -3,8 +3,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
 
-from train_tools.utils import directory_setter
+from .utils import result_dict_saver
+from .plotter import RC_plotter, logit_plotter, performance_plotter
 import copy
+
+__all__ = ['InspectionHandler']
 
 class InspectionHandler():
     """
@@ -17,7 +20,7 @@ class InspectionHandler():
     3) Confidence(Softmax Response) & Entropy distribution
     """
     def __init__(self, Network, dataloaders, dataset_sizes, device='cuda:0', phase='test',
-                 num_path=1, path_cost=(1,), base_setting=True, tolerance=0.001, use_small=False, save_path='./results/inspection/'):
+                 num_path=1, path_cost=(1,), base_setting=True, tolerance=0.001, use_small=False, path='./results'):
         """
         [args]      (int) num_path : the number of adaptive paths of inference 
                     (tuple) path_cost : relative cost of path flops w.r.t. total flops ex) (0.3, 0.7, 1.15)
@@ -34,7 +37,7 @@ class InspectionHandler():
         self.num_path = num_path
         self.path_cost = path_cost
         self.use_small = 1 if use_small else 0
-        self.save_path = save_path
+        self.path = path
         self.name = 'test' # default experiment name is 'test'
         
         if num_path != 1:
@@ -103,6 +106,12 @@ class InspectionHandler():
         
         return total_acc, path_acc, path_ratio, flops_score
 
+    
+    def save_inspection(self):
+        result_dict_saver(self.result_dict, result_path=self.path, sub_loc='inspection', model_name=self.name)
+        RC_plotter(self.result_dict, num_path=self.num_path, result_path=self.path, model_name=self.name)
+        logit_plotter(self.result_dict, num_path=self.num_path, result_path=self.path, model_name=self.name)
+        performance_plotter(self.result_dict, num_path=self.num_path, result_path=self.path, model_name=self.name)
     
     def grid_inspector(self, start_cond, grid=0.01, clean_before=True):
         """
@@ -461,7 +470,7 @@ class InspectionHandler():
                 path_cond = -1
             
             self.result_dict['path_cond_'+str(i)].append(path_cond)
-
+    
             
     def _baseline_setter(self, phase='test'):
         """
@@ -492,4 +501,8 @@ class InspectionHandler():
             base = torch.cat((base, tensor), dim=0)
         
         return base
+    
+    
+    def set_name(self, name):
+        self.name = name
     

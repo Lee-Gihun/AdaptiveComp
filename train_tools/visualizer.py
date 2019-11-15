@@ -2,6 +2,9 @@ from sklearn.manifold.t_sne import TSNE
 from umap import UMAP
 import matplotlib.pyplot as plt
 
+__all__ = ['VisualizationHandler']
+
+
 class VisualizationHandler():
     """
     Inspector for learned network. Conducts following inspections:

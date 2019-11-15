@@ -17,6 +17,10 @@ class EPELoss(nn.Module):
         exit, feature = outputs
         
         total_loss = None
+        
+        if type(outputs[0]) != list:
+            total_loss = nn.CrossEntropyLoss()(outputs[0], target)
+            return total_loss
 
         for i in range(len(exit)):
             loss = (1-self.alpha)*self.CE(exit[i], target)

@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 from .utils import *
-from .topk_acc import *
+from .plotter import train_plotter
 
 import copy
 import time
@@ -245,59 +245,6 @@ class TrainHandler():
 
         return epoch_loss, epoch_acc
 
-    def _test_phase(self, topk):        
-        self.model.eval()
-        avg_meter = [AverageMeter('top{} accuracy'.format(k)) for k in topk]
-        losses = AverageMeter('loss')
-
-        running_loss = 0.0
-        running_correct = 0.0
-        if self.early_exit:
-            early_exit = 0.0
-
-        for inputs, labels in self.dataloaders['test']:
-            inputs = inputs.to(self.device)
-            labels = labels.to(self.device)        
-                        
-            if self.precision == 16:
-                inputs = inputs.type(torch.HalfTensor)
-                inputs = inputs.to(self.device)
-                
-            # Zero out parameter gradients
-            self.optimizer.zero_grad()
-
-            with torch.no_grad():
-                # Inference
-                outputs = self.model(inputs)
-                preds = self.prediction(outputs)
-                loss = self.criterion(outputs, labels)
-                    
-                
-                if self.early_exit:
-                    preds, exit_mark = preds[0], preds[1]
-                    early_exit += torch.sum(exit_mark == 1)
-                    
-                    outputs = outputs[0]
-
-                # Get topk accuracy
-                topk_acc = accuracy(outputs.data, labels.data, topk=topk)
-                losses.update(loss.item(), inputs.size(0))
-                for i, topk_meter in enumerate(avg_meter):
-                    topk_meter.update(topk_acc[i], inputs.size(0))
-
-            # Statistics
-            running_loss += loss.item() * inputs.size(0)
-            running_correct += torch.sum(preds == labels.data)
-
-        test_loss = running_loss / self.dataset_sizes['test']
-        test_acc  = (running_correct.double() / self.dataset_sizes['test']).item()
-        topk_avg = [topk.avg for topk in avg_meter]
-        if self.early_exit:
-            test_early_exit = (early_exit.double() / self.dataset_sizes['test']).item()
-            return test_loss, test_acc, topk_avg, test_early_exit
-
-        return test_loss, test_acc, topk_avg
-
 
     def train_model(self, num_epochs=200, valid_freq=1, log_freq=1, print_freq=1, early_stop=False, patience=10, verbose=False):
         since = time.time()
@@ -373,15 +320,11 @@ class TrainHandler():
             self.device = device
             self.model.to(device)
 
-        if self.early_exit:
-            test_loss, test_acc, topk_avg, test_early_exit = self._test_phase(topk)
-        else:
-            test_loss, test_acc, topk_avg = self._test_phase(topk)
+
+        test_loss, test_acc = self._epoch_phase('test')
 
         # Test result
         print('[{}] Loss - {:.4f}, Acc - {:2.2f}%'.format('Test', test_loss, math.floor(test_acc * 10000) / 100))
-        for k, k_avg in zip(topk, topk_avg):
-            print('[{}] Top {} accuracy: {:2.2f}% '.format('Test', k, math.floor(k_avg.item() * 100) / 100))
         print()
         
         if not pretrained:
@@ -389,12 +332,12 @@ class TrainHandler():
             self.result_log['test_acc']  = test_acc
             result_logger(self.result_log, self.num_epochs, self.path, self.name)
         
-            plotter(self.result_log['train_loss'], self.result_log['valid_loss'], self.result_log['test_loss'], 'loss', self.path, self.name, True, plot_freq)
-            plotter(self.result_log['train_acc'], self.result_log['valid_acc'], self.result_log['test_acc'], 'accuracy', self.path, self.name, True, plot_freq)
+            train_plotter(self.result_log['train_loss'], self.result_log['valid_loss'], self.result_log['test_loss'], 'loss', self.path, self.name, True, plot_freq)
+            train_plotter(self.result_log['train_acc'], self.result_log['valid_acc'], self.result_log['test_acc'], 'accuracy', self.path, self.name, True, plot_freq)
 
             # Save test result to model info
             self.model_info['performance'] = {'loss': test_loss, 'accuracy': test_acc}
-            model_saver(self.model, self.init_states['model'], self.model_info, self.path, self.name)
+            model_saver(self.model, self.init_states['model'], self.model_info, self.path, 'trained_models', self.name)
             
             self.result_log = self.__init_result_log()
             self.model_info['performance'] = None

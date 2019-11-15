@@ -30,8 +30,14 @@
         "seed": 2020,
         "device": "cuda:1",
         "path": "./results",
-        "name": "ep_resnet18_cifar100_epe",
-        "num_epochs" : 250
+        "name": "ep_resnet18_cifar100_epe_test",
+        "num_epochs" : 1
+    },
+    "inspectionhandler": {
+        "num_path": 4,
+        "path_cost": [1,1,1,1],
+        "use_small": false,
+        "phase": "test"
     },
     "model": {
         "param": {

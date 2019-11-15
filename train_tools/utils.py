@@ -5,7 +5,7 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 
-__all__ = ['ConfLoader', 'model_saver', 'result_logger', 'plotter', 'EarlyStopping']
+__all__ = ['ConfLoader', 'model_saver', 'result_logger', 'result_dict_saver', 'EarlyStopping']
 
 
 class ConfLoader:
@@ -48,23 +48,43 @@ def directory_setter(path='./results', make_dir=False):
         raise NotADirectoryError('%s is not valid. set make_dir=True to make dir.' % path)
         
 
-def model_saver(trained_model, initial_model, model_info=None, result_path='./results', model_name='model', make_dir=True):
-    save_path = result_path + '/trained_models/' + model_name
+def json_saver(json_file, json_path):
+    with open(json_path, 'w') as fp:
+        json.dump(json_file, fp)
+
+        
+def path_setter(result_path, sub_loc, model_name):
+    save_path = '/'.join((result_path, sub_loc, model_name))
+    return save_path
+    
+    
+def result_dict_saver(result_dict, result_path='./results', sub_loc='inspection', model_name='model', make_dir=True):
+    """
+    saves model inspection results
+    """
+    save_path = path_setter(result_path, sub_loc, model_name)
     directory_setter(save_path, make_dir)
-
-
+    
+    result_dict_path = os.path.join(save_path, 'result_dict.json')
+    json_saver(result_dict, result_dict_path)
+    print('inspection result saved to %s' % save_path)
+        
+        
+def model_saver(trained_model, initial_model, model_info=None, result_path='./results', sub_loc='trained_models', model_name='model', make_dir=True):
     """
     saves model weights and model description.
     """
+    save_path = path_setter(result_path, sub_loc, model_name)
+    directory_setter(save_path, make_dir)
+
     # save model description if exsists
     info_path = os.path.join(save_path, 'model_info.json')
     trained_model_path = os.path.join(save_path, 'trained_model.pth')
     initial_model_path = os.path.join(save_path, 'initial_model.pth')
     
     if model_info:
-        with open(info_path, 'w') as fp:
-            json.dump(model_info, fp)
-    
+        json_saver(model_info, info_path)
+
     wts = trained_model.state_dict()
     torch.save(wts, trained_model_path)
     print('trained model saved as %s' % trained_model_path)
@@ -109,30 +129,6 @@ def result_logger(result_dict, epoch_num, result_path='./results', model_name='m
         f.write(','*sep + '%0.5f, %0.5f'% (result_dict['test_loss'], result_dict['test_acc']))
         
     print('results are logged at: \'%s' % save_path)    
-    
-    
-def plotter(train, valid, test, mode, result_path='./results', model_name='model', make_dir=True, plot_freq=0.05):
-    
-    """
-    plots loss or accuracy graph for train/valid logs, and saves as .png file.
-    train, valid : list of tuples. ex) [(0, 0.08), (1, 0.56)...]
-    test : float
-    mode : 'loss' or 'accuracy'
-    """
-    save_path = result_path + '/graphs/' + model_name
-    directory_setter(save_path, make_dir)
-    fig=plt.figure(figsize=(8, 6), dpi= 80, facecolor='w', edgecolor='k')    
-    plt.plot(*zip(*train), 'k', linestyle='-', label='train_%s'%mode)
-    plt.plot(*zip(*valid), 'r', linestyle='-', label='valid_%s'%mode)
-    plt.plot(len(train), test, 'bo', label='test_{}({:0.4f})'.format(mode, test))
-    plt.xlabel('Epoch')
-    plt.ylabel(mode)
-    plt.legend()
-    plt.grid()
-    plt.xticks([x+1 for x in range(len(train)) if (x+1) % (len(train)*plot_freq) == 0])
-    fname = os.path.join(save_path, '{}_{}_{}.png'.format(model_name, 'graph', mode))
-    plt.savefig(fname)
-    print('{} plot saved at {}'.format(mode, fname))
 
 
 class EarlyStopping():

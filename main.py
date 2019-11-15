@@ -49,17 +49,21 @@ def _get_trainhandler(opt, model, dataloaders, dataset_sizes):
     
     return train_handler
 
+def _get_inspectionhandler(opt, model, dataloaders, dataset_sizes):
+    inspection_handler = InspectionHandler(model, dataloaders, dataset_sizes, num_path=opt.inspectionhandler.num_path, path_cost=opt.inspectionhandler.path_cost, use_small=opt.inspectionhandler.use_small, phase=opt.inspectionhandler.phase)
+    return inspection_handler
 
 def run(opt):
     dataloaders, dataset_sizes = _get_dataset(opt.data)
     model = _get_model(opt)
     
     train_handler = _get_trainhandler(opt, model, dataloaders, dataset_sizes)
-    
     train_handler.train_model(num_epochs=opt.trainhandler.num_epochs)
-    
     train_handler.test_model()
     
+    inspection_handler = _get_inspectionhandler(opt, model, dataloaders, dataset_sizes)
+    inspection_handler.set_name(opt.trainhandler.name)
+    inspection_handler.save_inspection()
     
 if __name__ == "__main__":
     # gets arguments from the json file

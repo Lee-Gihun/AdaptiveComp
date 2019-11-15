@@ -1,11 +1,46 @@
+import os
 import matplotlib.pyplot as plt
+from .utils import directory_setter, path_setter
 
-def RC_plotter(result_dict, num_paths, tolerance=0.001, name='Risk-Coverage', xlim=0.5):
-    risk, coverage, perfect_coverage = result_dict['risk'], result_dict['coverage'], result_dict['perfect_coverage']
-    fig, axs = plt.subplots(1, num_paths, figsize=(6*num_paths, 6))
-    fig.suptitle(name, fontsize=20)
+__all__ = ['train_plotter', 'RC_plotter', 'logit_plotter', 'performance_plotter']
+
+
+def train_plotter(train, valid, test, mode, result_path='./results', model_name='model', make_dir=True, plot_freq=0.05):
     
-    for i in range(num_paths):
+    """
+    plots loss or accuracy graph for train/valid logs, and saves as .png file.
+    train, valid : list of tuples. ex) [(0, 0.08), (1, 0.56)...]
+    test : float
+    mode : 'loss' or 'accuracy'
+    """
+    save_path = path_setter(result_path, 'graphs', model_name)
+    directory_setter(save_path, make_dir)
+    
+    fig=plt.figure(figsize=(8, 6), dpi= 80, facecolor='w', edgecolor='k')    
+    plt.plot(*zip(*train), 'k', linestyle='-', label='train_%s'%mode)
+    plt.plot(*zip(*valid), 'r', linestyle='-', label='valid_%s'%mode)
+    plt.plot(len(train), test, 'bo', label='test_{}({:0.4f})'.format(mode, test))
+    plt.xlabel('Epoch')
+    plt.ylabel(mode)
+    plt.legend()
+    plt.grid()
+    plt.xticks([x+1 for x in range(len(train)) if (x+1) % (len(train)*plot_freq) == 0])
+    fname = os.path.join(save_path, '{}_{}_{}.png'.format(model_name, 'graph', mode))
+    plt.savefig(fname)
+    print('{} plot saved at {}'.format(mode, fname))
+
+    
+def RC_plotter(result_dict, num_path, tolerance=0.001, name='Risk-Coverage', xlim=0.5, \
+               result_path='./results', model_name='model', make_dir=True):
+    
+    save_path = path_setter(result_path, 'inspection', model_name)
+    directory_setter(save_path, make_dir)    
+    
+    risk, coverage, perfect_coverage = result_dict['risk'], result_dict['coverage'], result_dict['perfect_coverage']
+    fig, axs = plt.subplots(1, num_path, figsize=(6*num_path, 6))
+    fig.suptitle('Risk-Coverage', fontsize=20)
+    
+    for i in range(num_path):
         axs[i].set(title='Risk-Coverage Curve %d'%(i), xlabel='Risk(r)', ylabel='Coverage(c)')
         axs[i].plot(risk[i], coverage[i], color='red', linestyle='-', markersize=2, alpha=0.7)
         axs[i].plot(risk[-1], coverage[-1], color='blue', linestyle='-', markersize=2, alpha=0.7)
@@ -30,16 +65,21 @@ def RC_plotter(result_dict, num_paths, tolerance=0.001, name='Risk-Coverage', xl
 
         axs[i].legend(['path %d'%(i+1), 'baseline'], loc=4)
         axs[i].grid()
-        
-    fig.show()
-
-
-def logit_plotter(reslt_dict, num_paths, name='logit_dist'):
-
-    fig, (axs) = plt.subplots(num_paths, 2, figsize=(10, 6*num_paths))
-    fig.suptitle(name, fontsize=20)
     
-    for i in range(num_paths):    
+    fname = os.path.join(save_path, '{}_{}.png'.format(model_name, 'RC'))
+    fig.savefig(fname)
+    
+    print('%s inspection_RC graph is saved' % model_name)   
+
+
+def logit_plotter(result_dict, num_path, result_path='./results', model_name='model', make_dir=True):
+    save_path = path_setter(result_path, 'inspection', model_name)
+    directory_setter(save_path, make_dir)
+    
+    fig, (axs) = plt.subplots(num_path, 2, figsize=(10, 6*num_path))
+    fig.suptitle('logit_dist', fontsize=20)
+    
+    for i in range(num_path):    
         sr_dist, entropy_dist = result_dict['max_sr_dist_%d'%i], result_dict['entropy_dist_%d'%i],
         (max_logit_co, max_logit_inco), (entropy_co, entropy_inco) = sr_dist, entropy_dist
         ax1, ax2 = axs[i][0], axs[i][1]
@@ -59,12 +99,16 @@ def logit_plotter(reslt_dict, num_paths, name='logit_dist'):
         ax2.legend(['correct samples', 'incorrect samples'])
         ax2.grid()
     
-    fig.show()
-    fig.savefig('./%s.png' % name)
-    print('%s inspection graph is saved' % name)    
+    fname = os.path.join(save_path, '{}_{}.png'.format(model_name, 'logitdist'))
+    fig.savefig(fname)
+    
+    print('%s inspection_logitdist graph is saved' % model_name)    
     
     
-def performance_plotter(result_dict, num_paths, name='acc_score'):
+def performance_plotter(result_dict, num_path, name='acc_score', result_path='./results', model_name='model', make_dir=True):
+    save_path = path_setter(result_path, 'inspection', model_name)
+    directory_setter(save_path, make_dir)
+    
     total_acc, flops_score = result_dict['total_acc'], result_dict['flops_score']
     fig=plt.figure(figsize=(8, 6), facecolor='w', edgecolor='k')    
     plt.scatter(flops_score, total_acc)
@@ -74,6 +118,8 @@ def performance_plotter(result_dict, num_paths, name='acc_score'):
     plt.ylim(0, 1)
     plt.xlim(0.3, 1.4)
     plt.grid()
-    plt.show()
-    plt.savefig('./%s.png' % name)
-    print('%s inspection graph is saved' % name)   
+    
+    fname = os.path.join(save_path, '{}_{}.png'.format(model_name, 'AccFlops'))
+    plt.savefig(fname)
+    
+    print('%s inspection_AccFlops graph is saved' % model_name)   
