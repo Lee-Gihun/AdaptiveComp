@@ -28,10 +28,10 @@
     },
     "trainhandler": {
         "seed": 2020,
-        "device": "cuda:1",
+        "device": "cuda:0",
         "path": "./results",
-        "name": "ep_resnet18_cifar100_epe_test",
-        "num_epochs" : 1
+        "name": "ep_resnet18_cifar100_epe_pt",
+        "num_epochs" : 250
     },
     "inspectionhandler": {
         "num_path": 4,
@@ -40,6 +40,10 @@
         "phase": "test"
     },
     "model": {
+        "pretrained":{
+            "enabled": true,
+            "fpath": "./results/trained_models/resnet18_cifar100"
+        },
         "param": {
             "model_type": "ep_resnet18",
             "exit_module" : "epe",

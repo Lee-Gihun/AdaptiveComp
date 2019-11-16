@@ -1,4 +1,4 @@
-import sys
+import os, sys
 import numpy as np
 import torch
 import torch.optim as optim
@@ -58,6 +58,11 @@ def run(opt):
     model = _get_model(opt)
     
     train_handler = _get_trainhandler(opt, model, dataloaders, dataset_sizes)
+    
+    if opt.model.pretrained.enabled:
+        fpath = opt.model.pretrained.fpath
+        pretrained_dict = torch.load(os.path.join(fpath, 'trained_model.pth'), map_location=opt.trainhandler.device)
+        train_handler.model.load_state_dict(pretrained_dict, strict=False)
     train_handler.train_model(num_epochs=opt.trainhandler.num_epochs)
     train_handler.test_model()
     
