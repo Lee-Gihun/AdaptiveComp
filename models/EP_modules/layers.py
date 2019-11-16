@@ -54,9 +54,6 @@ class SL_Pair(nn.Module):
 
     
 class SCAN(nn.Module):
-    """
-    SCAN
-    """
     def __init__(self, channels, stride=(1,1,1), final_channels=512, num_classes=100):
         super(SCAN, self).__init__()
         

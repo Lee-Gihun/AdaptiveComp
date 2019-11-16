@@ -8,6 +8,7 @@
     "criterion": {
         "algo": "epe",
         "param": {
+            "mse": false
         }
     },
     "optimizer": {
@@ -22,15 +23,15 @@
         "enabled": true,
         "type" : "multistep",
         "param" : {
-            "milestones" : [100, 200],
-            "gamma" : 0.1
+            "gamma" : 0.1,
+            "milestones": [100, 200]
         }
     },
     "trainhandler": {
         "seed": 2020,
-        "device": "cuda:0",
+        "device": "cuda:1",
         "path": "./results",
-        "name": "ep_resnet18_cifar100_epe_pt",
+        "name": "ep_resnet18_cifar100_scan_nomse",
         "num_epochs" : 250
     },
     "inspectionhandler": {
@@ -41,12 +42,12 @@
     },
     "model": {
         "pretrained":{
-            "enabled": true,
-            "fpath": "./results/trained_models/resnet18_cifar100"
+            "enabled": false,
+            "fpath": "./results/trained_models/resnet18_cifar100_pretrained"
         },
         "param": {
             "model_type": "ep_resnet18",
-            "exit_module" : "epe",
+            "exit_module" : "scan",
             "start_mark": 0,
             "num_classes": 100
         }
