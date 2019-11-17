@@ -13,9 +13,9 @@ class EP_ResNet(ResNet):
         self.start_mark = start_mark
 
         self.exit_module = nn.ModuleList(
-            [exit_module(channels=64, stride=(2,2,2)),
-             exit_module(channels=128, stride=(2,2,1)),
-             exit_module(channels=256, stride=(1,2,1))])
+            [exit_module(channels=64, stride=(1,1,1)),
+             exit_module(channels=128, stride=(1,1,1)),
+             exit_module(channels=256, stride=(1,1,1))])
 
         self.exit_cond = [LogitCond(1), LogitCond(1), LogitCond(1)]
 

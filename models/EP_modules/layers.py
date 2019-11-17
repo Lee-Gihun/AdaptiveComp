@@ -52,11 +52,30 @@ class SL_Pair(nn.Module):
         
         return outputs, mark
 
+
+class SelectionLayer(nn.Module):
+    def __init__(self, features=512):
+        self._selector = nn.ModuleList([
+            nn.Linear(features, 100),
+            nn.BatchNorm1d(100),
+            nn.ReLU(inplace=True),
+            nn.Linear(100, 1),
+            nn.Sigmoid()
+        ])
+        
+    def forward(self, x):
+        x = self._selector(x)
+        return x
+    
     
 class SCAN(nn.Module):
-    def __init__(self, channels, stride=(1,1,1), final_channels=512, num_classes=100):
+    def __init__(self, channels, stride=(1,1,1), final_channels=512, num_classes=100, selection=False):
         super(SCAN, self).__init__()
         
+        if selection:
+            self._selection = SelectionLayer(final_channels)
+        self.selection = selection
+            
         # activation func
         self._relu = nn.ReLU(inplace=True)
         
@@ -74,9 +93,13 @@ class SCAN(nn.Module):
         self._bot1x1_1 = nn.Conv2d(channels, final_channels, kernel_size=1, stride=stride[2], bias=False)
         self._botbn2 = nn.BatchNorm2d(final_channels)
         
+        # feature pooling
+        self._feature_pool = nn.AdaptiveAvgPool2d(4)
+        
         # classifier module
         self._globalavgpool = nn.AdaptiveAvgPool2d(1)
         self._shallow_classifier = nn.Conv2d(final_channels, num_classes, kernel_size=1, stride=1, bias=True)
+        
     
     def forward(self, x):
         # attention
@@ -89,9 +112,14 @@ class SCAN(nn.Module):
         x = self._relu(self._botbn0(self._bot1x1_0(x)))
         x = self._relu(self._botbn1(self._bot3x3(x)))
         features = self._relu(self._botbn2(self._bot1x1_1(x)))
+        features = self._feature_pool(features)
         #print(feature.shape)
         # classifier
         x = self._globalavgpool(features)
+        
+        if self.selection:
+            selection = self._selection(x)
+        
         x = self._shallow_classifier(x).squeeze()
         
         return x, features
@@ -101,9 +129,13 @@ class EPE(nn.Module):
     """
     EPE Module
     """
-    def __init__(self, channels, stride=(1,1,1), final_channels=512, expansion=2, num_class=100):
+    def __init__(self, channels, stride=(1,1,1), final_channels=512, expansion=2, num_class=100, selection=False):
         super(EPE, self).__init__()
         
+        if selection:
+            self._selection = SelectionLayer(final_channels)
+        self.selection = selection
+            
         # activation func
         self._relu = nn.ReLU(inplace=True)
         
@@ -118,19 +150,31 @@ class EPE(nn.Module):
         
         self._projection_conv = nn.Conv2d(mid_channels, final_channels, kernel_size=1, stride=stride[2], bias=False)
         self._bn2 = nn.BatchNorm2d(final_channels)
+
+        # feature pooling
+        self._feature_pool = nn.AdaptiveAvgPool2d(4)
         
         # classifier module
         self._globalavgpool = nn.AdaptiveAvgPool2d(1)
         self._shallow_classifier = nn.Conv2d(final_channels, num_class, kernel_size=1, stride=1, bias=True)
-    
+
+        
     def forward(self, x):
         # conv
         x = self._relu(self._bn0(self._expansion_conv(x)))
         x = self._relu(self._bn1(self._depthwise_conv(x)))
         features = self._relu(self._bn2(self._projection_conv(x)))
+        features = self._feature_pool(features)
 
         # classifier
         x = self._globalavgpool(features)
+        
+        if self.selection:
+            selection = self._selection(x)
+            
         x = self._shallow_classifier(x).squeeze()
+        
         return x, features
+
+    
     

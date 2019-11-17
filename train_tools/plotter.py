@@ -63,7 +63,7 @@ def RC_plotter(result_dict, num_path, tolerance=0.001, name='Risk-Coverage', xli
                         xytext=(0.001+0.005, perfect_coverage[-1]-0.12), color='blue', \
                      fontsize=10, weight='bold',arrowprops=dict(arrowstyle="->", color='blue'))
 
-        axs[i].legend(['path %d'%(i+1), 'baseline'], loc=4)
+        axs[i].legend(['path %d'%(i+1), 'Main path'], loc=4)
         axs[i].grid()
     
     fname = os.path.join(save_path, '{}_{}.png'.format(model_name, 'RC'))

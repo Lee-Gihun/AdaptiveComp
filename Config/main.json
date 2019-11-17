@@ -7,8 +7,9 @@
     },    
     "criterion": {
         "algo": "epe",
-        "param": {
-            "mse": false
+        "param":{
+            "kl": true,
+            "mse": true
         }
     },
     "optimizer": {
@@ -29,26 +30,28 @@
     },
     "trainhandler": {
         "seed": 2020,
-        "device": "cuda:1",
+        "device": "cuda:0",
         "path": "./results",
-        "name": "ep_resnet18_cifar100_scan_nomse",
-        "num_epochs" : 250
+        "name": "resnet18_cifar100_scan_adaptfpool_epe_250epoch",
+        "num_epochs" : 250,
+        "ep_prediction" : true
     },
     "inspectionhandler": {
+        "enabled": true,
         "num_path": 4,
         "path_cost": [1,1,1,1],
         "use_small": false,
         "phase": "test"
     },
     "model": {
+        "model_type": "ep_resnet18",
+        
         "pretrained":{
             "enabled": false,
             "fpath": "./results/trained_models/resnet18_cifar100_pretrained"
         },
         "param": {
-            "model_type": "ep_resnet18",
-            "exit_module" : "scan",
-            "start_mark": 0,
+            "exit_module": "scan",
             "num_classes": 100
         }
     }
