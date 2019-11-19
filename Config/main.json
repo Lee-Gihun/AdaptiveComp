@@ -8,8 +8,8 @@
     "criterion": {
         "algo": "epe",
         "param":{
-            "kl": true,
-            "mse": true
+            "alpha": 0.5,
+            "beta": 5e-7
         }
     },
     "optimizer": {
@@ -25,15 +25,15 @@
         "type" : "multistep",
         "param" : {
             "gamma" : 0.1,
-            "milestones": [100, 200]
+            "milestones": [75, 130, 180]
         }
     },
     "trainhandler": {
         "seed": 2020,
         "device": "cuda:0",
         "path": "./results",
-        "name": "resnet18_cifar100_scan_adaptfpool_epe_250epoch",
-        "num_epochs" : 250,
+        "name": "resnet18_cifar100_SCAN_reproduce",
+        "num_epochs" : 200,
         "ep_prediction" : true
     },
     "inspectionhandler": {

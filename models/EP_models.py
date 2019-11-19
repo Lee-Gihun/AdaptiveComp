@@ -13,9 +13,9 @@ class EP_ResNet(ResNet):
         self.start_mark = start_mark
 
         self.exit_module = nn.ModuleList(
-            [exit_module(channels=64, stride=(1,1,1)),
-             exit_module(channels=128, stride=(1,1,1)),
-             exit_module(channels=256, stride=(1,1,1))])
+            [exit_module(channels=64, b_stride=8),
+             exit_module(channels=128, b_stride=4),
+             exit_module(channels=256, b_stride=2)])
 
         self.exit_cond = [LogitCond(1), LogitCond(1), LogitCond(1)]
 
@@ -68,8 +68,8 @@ class EP_ResNet(ResNet):
         
         features4 = self.layer4(x)
         
-        x = self.avgpool(features4)
-        x = torch.flatten(x, 1)
+        features4 = self.avgpool(features4)
+        x = torch.flatten(features4, 1)
         exit4 = self.fc(x)
         outputs[empty_indices] = exit4
         mark[empty_indices] = 3

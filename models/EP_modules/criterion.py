@@ -1,43 +1,43 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import math
 
 __all__ = ['EPELoss']
 
+
 class EPELoss(nn.Module):
-    def __init__(self, alpha=5e-7, beta=0.5, kl=True, mse=True):
+    def __init__(self, alpha=0.5, beta=5e-7):
         super(EPELoss, self).__init__()
         self.beta = beta
         self.alpha = alpha
         self.CE = nn.CrossEntropyLoss()
-        self.KL = nn.KLDivLoss(reduction='batchmean')
-        self.MSE = nn.MSELoss()
-        self.kl, self.mse = kl, mse
         
     def forward(self, outputs, target):
-        exit, feature = outputs
-        
-        total_loss = None
         
         if type(outputs[0]) != list:
-            total_loss = nn.CrossEntropyLoss()(outputs[0], target)
+            total_loss = self.CE(outputs[0], target)
             return total_loss
-
-        for i in range(len(exit)):
+        
+        exit, feature = outputs
+        teacher_exit, teacher_feature = exit[-1].detach(), feature[-1].detach()
+        teacher_exit.requires_grad = False
+        teacher_feature.requires_grad = False
+        
+        total_loss = self.CE(exit[-1], target)
+        
+        for i in range(len(exit)-1):
             loss = (1-self.alpha)*self.CE(exit[i], target)
-            if self.kl:
-                loss += self.alpha*self.KL(exit[i].softmax(dim=0), exit[-1].softmax(dim=0))
-            
-            if self.mse:
-                loss += self.beta*self.MSE(feature[i], feature[-1])
-            
-            if total_loss is None:
-                total_loss = loss
-                
-            else:
-                total_loss += loss
+            loss += self.alpha*self._kldivloss(exit[i], teacher_exit)
+            loss += self.beta*(((feature[i]-teacher_feature)**2).sum())
+            total_loss += loss
 
         return total_loss
+    
+    def _kldivloss(self, outputs, targets):
+        log_softmax_outputs = F.log_softmax(outputs/3.0, dim=1)
+        softmax_targets = F.softmax(targets/3.0, dim=1)
+        return -9*(log_softmax_outputs * softmax_targets).sum(dim=1).mean()
 
     
 class HardSmoothingLoss(nn.Module):
@@ -52,8 +52,6 @@ class HardSmoothingLoss(nn.Module):
         
         for i in range(len(exit)):
             loss = 0
-        
-    
     
     def _target_setter(self, position_flops):
         hard_target = []
@@ -70,12 +68,9 @@ class SoftSmoothingLoss(nn.Module):
         self.epe = EPELoss(alpha, beta, kl, mse)
         
     def forward(self, outputs, target):
-        pass
-
+        pass    
         
-        
-        
-        
+            
         
 class SoftSmoothingLoss(nn.Module):
     def __init__(self, classes=100, shift=1.0, temp=1.0, scale=1.0, indicate=False):

@@ -56,10 +56,10 @@ class SL_Pair(nn.Module):
 class SelectionLayer(nn.Module):
     def __init__(self, features=512):
         self._selector = nn.ModuleList([
-            nn.Linear(features, 100),
-            nn.BatchNorm1d(100),
+            nn.Linear(features, 512),
+            nn.BatchNorm1d(512),
             nn.ReLU(inplace=True),
-            nn.Linear(100, 1),
+            nn.Linear(512, 1),
             nn.Sigmoid()
         ])
         
@@ -69,58 +69,57 @@ class SelectionLayer(nn.Module):
     
     
 class SCAN(nn.Module):
-    def __init__(self, channels, stride=(1,1,1), final_channels=512, num_classes=100, selection=False):
+    def __init__(self, channels, b_stride=2, final_channels=512, num_classes=100, selection=False):
         super(SCAN, self).__init__()
         
         if selection:
             self._selection = SelectionLayer(final_channels)
+        
         self.selection = selection
             
         # activation func
         self._relu = nn.ReLU(inplace=True)
         
         # attention module
-        self._attconv = nn.Conv2d(channels, channels, kernel_size=3, stride=2, padding=1, bias=False)
+        self._attconv = nn.Conv2d(channels, channels, kernel_size=3, stride=2, padding=1, bias=True)
         self._attbn0 = nn.BatchNorm2d(channels)
-        self._attdeconv = nn.ConvTranspose2d(channels, channels, kernel_size=3, stride=2, padding=1, bias=False)
+        self._attdeconv = nn.ConvTranspose2d(channels, channels, kernel_size=4, stride=2, padding=1, bias=True)
         self._attbn1 = nn.BatchNorm2d(channels)
         
         # bottleneck module
-        self._bot1x1_0 = nn.Conv2d(channels, channels, kernel_size=1, stride=stride[0], bias=False)
-        self._botbn0 = nn.BatchNorm2d(channels)
-        self._bot3x3 = nn.Conv2d(channels, channels, kernel_size=3, stride=stride[1], padding=1, bias=False)
-        self._botbn1 = nn.BatchNorm2d(channels)
-        self._bot1x1_1 = nn.Conv2d(channels, final_channels, kernel_size=1, stride=stride[2], bias=False)
+        self._bot1x1_0 = nn.Conv2d(channels, 128, kernel_size=1, stride=1, bias=True)
+        self._botbn0 = nn.BatchNorm2d(128)
+        self._bot3x3 = nn.Conv2d(128, 128, kernel_size=b_stride, stride=b_stride, bias=True)
+        self._botbn1 = nn.BatchNorm2d(128)
+        self._bot1x1_1 = nn.Conv2d(128, final_channels, kernel_size=1, stride=1, bias=True)
         self._botbn2 = nn.BatchNorm2d(final_channels)
         
-        # feature pooling
-        self._feature_pool = nn.AdaptiveAvgPool2d(4)
-        
         # classifier module
-        self._globalavgpool = nn.AdaptiveAvgPool2d(1)
+        self._globalavgpool = nn.AvgPool2d(4, 4)
         self._shallow_classifier = nn.Conv2d(final_channels, num_classes, kernel_size=1, stride=1, bias=True)
+        
+        # selection module
+        #self._selection = SelectionLayer(512)
+
         
     
     def forward(self, x):
         # attention
         att = self._relu(self._attbn0(self._attconv(x)))
-
-        att = self._relu(self._attbn1(self._attdeconv(att, x.shape)))
+        att = self._relu(self._attbn1(self._attdeconv(att)))
         x = x * torch.sigmoid(att)
         
         # bottleneck
         x = self._relu(self._botbn0(self._bot1x1_0(x)))
         x = self._relu(self._botbn1(self._bot3x3(x)))
+        
         features = self._relu(self._botbn2(self._bot1x1_1(x)))
-        features = self._feature_pool(features)
-        #print(feature.shape)
-        # classifier
-        x = self._globalavgpool(features)
+        features = self._globalavgpool(features)
         
         if self.selection:
             selection = self._selection(x)
         
-        x = self._shallow_classifier(x).squeeze()
+        x = self._shallow_classifier(features).squeeze()
         
         return x, features
     
