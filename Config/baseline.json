@@ -6,12 +6,8 @@
         "valid_size": 5000
     },    
     "criterion": {
-        "algo": "epe",
+        "algo": "crossentropy",
         "param":{
-            "alpha": 0.0,
-            "beta": 0,
-            "hard": true,
-            "soft": false
         }
     },
     "optimizer": {
@@ -34,27 +30,25 @@
         "seed": 100,
         "device": "cuda:1",
         "path": "./results",
-        "name": "[EXP_SCAN]resnet18_cifar100_dsn_hard",
+        "name": "resnet10_cifar100",
         "num_epochs" : 120,
-        "ep_prediction" : true
+        "ep_prediction" : false
     },
     "inspectionhandler": {
-        "enabled": true,
+        "enabled": false,
         "num_path": 4,
         "path_cost": [1,1,1,1],
         "use_small": false,
         "phase": "test"
     },
     "model": {
-        "model_type": "ep_resnet18",
+        "model_type": "resnet10",
         
         "pretrained":{
             "enabled": false,
             "fpath": "./results/trained_models/resnet18_cifar100_pretrained"
         },
         "param": {
-            "exit_module": "scan",
-            "selection" : false,
             "num_classes": 100
         }
     }

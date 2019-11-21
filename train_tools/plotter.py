@@ -43,9 +43,9 @@ def RC_plotter(result_dict, num_path, tolerance=0.001, name='Risk-Coverage', xli
     for i in range(num_path):
         axs[i].set(title='Risk-Coverage Curve %d'%(i), xlabel='Risk(r)', ylabel='Coverage(c)')
         axs[i].plot(risk[i], coverage[i], color='red', linestyle='-', markersize=2, alpha=0.7)
-        axs[i].plot(risk[-1], coverage[-1], color='blue', linestyle='-', markersize=2, alpha=0.7)
+        #axs[i].plot(risk[-1], coverage[-1], color='blue', linestyle='-', markersize=2, alpha=0.7)
         axs[i].set_ylim(0.0, 1.0)
-        axs[i].set_xlim(0, round(max(risk[i])+0.05, 4))
+        axs[i].set_xlim(0, 0.4)
 
         axs[i].annotate('r*(%0.4f, %0.2f)'%(risk[i][0], coverage[i][0]), xy=(risk[i][0], coverage[i][0]),  \
                         xytext=(risk[i][0]-0.01, coverage[i][0]-0.1), color='red', \
@@ -55,15 +55,15 @@ def RC_plotter(result_dict, num_path, tolerance=0.001, name='Risk-Coverage', xli
                         xytext=(0.001+0.005, perfect_coverage[i]-0.12), color='red', \
                      fontsize=10, weight='bold',arrowprops=dict(arrowstyle="->", color='red'))
                                                                 
-        axs[i].annotate('r*(%0.4f, %0.2f)'%(risk[-1][0], coverage[-1][0]), xy=(risk[-1][0], coverage[-1][0]),\
-                        xytext=(risk[-1][0]-0.01, coverage[-1][0]-0.1), color='blue', \
-             fontsize=10, weight='bold', arrowprops=dict(arrowstyle="->", color='blue'))
+        #axs[i].annotate('r*(%0.4f, %0.2f)'%(risk[-1][0], coverage[-1][0]), xy=(risk[-1][0], coverage[-1][0]),\
+        #                xytext=(risk[-1][0]-0.01, coverage[-1][0]-0.1), color='blue', \
+        #     fontsize=10, weight='bold', arrowprops=dict(arrowstyle="->", color='blue'))
 
-        axs[i].annotate('c*(%0.3f, %0.3f)'%(0.001, perfect_coverage[-1]), xy=(tolerance, perfect_coverage[-1]), \
-                        xytext=(0.001+0.005, perfect_coverage[-1]-0.12), color='blue', \
-                     fontsize=10, weight='bold',arrowprops=dict(arrowstyle="->", color='blue'))
+        #axs[i].annotate('c*(%0.3f, %0.3f)'%(0.001, perfect_coverage[-1]), xy=(tolerance, perfect_coverage[-1]), \
+        #                xytext=(0.001+0.005, perfect_coverage[-1]-0.12), color='blue', \
+        #             fontsize=10, weight='bold',arrowprops=dict(arrowstyle="->", color='blue'))
 
-        axs[i].legend(['path %d'%(i+1), 'Main path'], loc=4)
+        axs[i].legend(['path %d'%(i+1)], loc=4)
         axs[i].grid()
     
     fname = os.path.join(save_path, '{}_{}.png'.format(model_name, 'RC'))

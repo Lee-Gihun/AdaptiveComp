@@ -285,7 +285,7 @@ class TrainHandler():
                     valid_early_exits.append((epoch, valid_early_exit))
                 
             # Update the best validation accuracy
-            if valid_acc > best_acc or dataset_sizes['valid'] == 0:
+            if valid_acc > best_acc or self.dataset_sizes['valid'] == 0:
                 best_acc = valid_acc
                 best_model_wts = copy.deepcopy(self.model.state_dict())
                 
