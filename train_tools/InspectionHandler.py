@@ -20,7 +20,7 @@ class InspectionHandler():
     3) Confidence(Softmax Response) & Entropy distribution
     """
     def __init__(self, Network, dataloaders, dataset_sizes, device='cuda:0', phase='test',
-                 num_path=1, path_cost=(1,), base_setting=True, tolerance=0.001, use_small=False, path='./results'):
+                 num_path=1, path_cost=(1,), base_setting=True, tolerance=0.001, path='./results'):
         """
         [args]      (int) num_path : the number of adaptive paths of inference 
                     (tuple) path_cost : relative cost of path flops w.r.t. total flops ex) (0.3, 0.7, 1.15)
@@ -36,12 +36,10 @@ class InspectionHandler():
         self.phase = phase
         self.num_path = num_path
         self.path_cost = path_cost
-        self.use_small = 1 if use_small else 0
         self.path = path
         self.name = 'test' # default experiment name is 'test'
         
-        if num_path != 1:
-            assert num_path == len(path_cost), 'number of paths should have corresponding cost!'
+        assert num_path == len(path_cost), 'paths should have corresponding cost!'
         
         # build base inspection results
         self._result_dict_builder(phase=phase)
@@ -78,11 +76,8 @@ class InspectionHandler():
                 pred = self._prediction(outputs)
                 
                 path_mark = []
-                
-                if self.use_small:
-                    path_mark.append(mark == -1) # mark of smallnet is -1
                     
-                for i in range(self.num_path-self.use_small):
+                for i in range(self.num_path):
                     path_mark.append(mark == i)
                 
                 for i, marker in enumerate(path_mark):
