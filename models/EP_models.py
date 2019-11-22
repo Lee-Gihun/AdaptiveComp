@@ -12,6 +12,9 @@ BACKBONE = {'resnet10': resnet10, 'resnet18': resnet18, 'resnet34':resnet34,
 
 EP = {'scan': SCAN, 'epe': EPE}
 
+SELECTION = {'selection1': Selection1, 'selection2': Selection2, 
+             'selection3': Selection3, 'selection4': Selection4}
+
 
 class EP_Model(nn.Module):
     """
@@ -19,26 +22,36 @@ class EP_Model(nn.Module):
     
     [args] (str)  BackboneNet : backbone network name
            (str)  EPNet       : early prediction network name
-           (dict) param       : opt.model dictionary should be here. It has 'num_classes', 'exit_blocks', 'backbone', 'ep'.
-                                For 'exit_blocks', if 0 : Small-Large network architecutre
+           (dict) param       : opt.model dictionary should be here. It has 'num_classes', 'exit_block_pos', 'backbone', 'ep'.
+                                For 'exit_block_pos', if 0 : Small-Large network architecutre
                                                    elif 1 : exit module after block 1, etc.
     """
-    def __init__(self, BackboneNet, EPNet, exit_blocks, param, device='cuda:0'):
+    def __init__(self, BackboneNet, EPNet, exit_block_pos, param, device='cuda:0'):
         super(EP_Model, self).__init__()
         self.BackboneNet = BACKBONE[BackboneNet](num_classes=param.num_classes,
                                                  **param.backbone).to(device)
         
-        assert max(param.exit_blocks) < len(self.BackboneNet.planes), 'Exit path is bigger than block number of BackboneNet'
-        self.exit_blocks = param.exit_blocks
-        self.use_small = True if 0 in param.exit_blocks else False
+        assert max(param.exit_block_pos) < len(self.BackboneNet.planes), 'Exit path is bigger than block number of BackboneNet'
+        self.exit_block_pos = param.exit_block_pos
+        self.use_small = True if 0 in param.exit_block_pos else False
         ep_modules = []
-        for idx, _ in enumerate(param.exit_blocks):
+        for idx, _ in enumerate(param.exit_block_pos):
             ep_modules.append(EP[EPNet](channels=self.BackboneNet.planes[idx],
                                         final_channels=self.BackboneNet.planes[-1],
+                                        stride=param.ep.stride[idx],
                                         num_classes=param.num_classes,
                                         **param.ep).to(device))
         self.EPNet = nn.ModuleList(ep_modules)
-        self.exit_cond = [ProbCond(1)] * param.exit_blocks
+        
+        assert param.ep.cond_type in ['sr', 'selection'], 'Condition type must be sr or selection'
+        
+        # +1 is for BackboneNet ExitCond layer
+        self.exit_cond = [ExitCond(1, param.ep.cond_type)] * (param.exit_block_pos + 1)
+        
+        if param.ep.cond_type == 'selection':
+            self.selection = SELECTION[param.ep.selection_layer](param.num_classes, self.BackboneNet.planes[-1])
+        else:
+            self.selection = None
             
         self.num_classes = param.num_classes
         self.device = device
@@ -48,9 +61,9 @@ class EP_Model(nn.Module):
             cond.thres = thres[i]
     
     def early_prediction(self, x, hard_indices, idx):
-        logits, features = self.EPNet[idx](x)
+        logits, features, selection = self.EPNet[idx](x)
         with torch.no_grad():
-            cond_up, cond_down = self.exit_cond[idx](exit)
+            cond_up, cond_down = self.exit_cond[idx](selection)
             
             easy_indices = copy.deepcopy(hard_indices)
             
@@ -61,10 +74,26 @@ class EP_Model(nn.Module):
             
         return x, features, logits, easy_indices, hard_indices
     
+    def ensemble_prediction(self, logits, features, hard_indices):
+        if self.selection:
+            selection = self.selection(logits, features)
+        else:
+            selection = logits
+            
+        with torch.no_grad():
+            cond_up, cond_down = self.exit_cond[-1](selection)
+            
+            easy_indices = copy.deepcopy(hard_indices)
+            
+            eeasy_indices[cond_down] = False
+            hard_indices[cond_up] = False
+            
+        return easy_indices, hard_indices
+    
     def forward(self, x):
         """
         mark value : 0 for Samll network, value bigger than 0 means each exit path number.
-        len(exit_outpus), len(exit_features) : should be same with len(exit_blocks) + 1(backbone network output)
+        len(exit_outpus), len(exit_features) : should be same with len(exit_block_pos) + 1(backbone network output)
         """
         device = str(self.conv1.weight.device)
         outputs = torch.zeros(x.size(0), self.num_classes).to(device)
@@ -75,9 +104,9 @@ class EP_Model(nn.Module):
         if not self.use_small:
             x = self.conv_stem(x)
             
-        for idx, exit_block in enumerate(self.exit_blocks):
+        for idx, pos in enumerate(self.exit_block_pos):
             # Small-Large network architecture
-            if exit_block == 0:
+            if pos == 0:
                 x, features, logits, easy_indices, hard_indices = self.early_prediction(x, hard_indices, idx)
                 
                 outputs[easy_indices], mark[easy_indices] = copy.deepcopy(logits), idx
@@ -90,10 +119,10 @@ class EP_Model(nn.Module):
                 
                 x = self.conv_stem(x)
                 
-            # early prediction for each exit_blocks
+            # early prediction for each exit_block_pos
             else:
-                start_block = 0 if idx == 0 else self.exit_blocks[idx-1]
-                for b in range(start_block, exit_block):
+                start_block = 0 if idx == 0 else self.exit_block_pos[idx-1]
+                for b in range(start_block, pos):
                     x = self.BackboneNet.block_layers[b](x)
                     
                 x, features, logits, easy_indices, hard_indices = self.early_prediction(x, hard_indices, idx)
@@ -106,16 +135,25 @@ class EP_Model(nn.Module):
                 if (x.size(0) == 0) and not self.training:
                     return outputs, mark
                 
-        # forward for last block and pool_linear layer
-        x = self.BackboneNet.block_layers[-1](x)
+        # forward for remained block and pool_linear layer
+        start_block = self.exit_block_pos[-1]
+        for b in range(start_block, len(self.BackboneNet.planes):
+            x = self.BackboneNet.block_layers[b](x)
         
         logits, features = self.pool_linear(x)
-    
-        outputs[hard_indices], mark[hard_indices] = logits, len(self.exit_blocks)
+        
+        easy_indices, hard_indices = ensemble_prediction(logits, features, hard_indices)
+                       
+        outputs[easy_indices], mark[easy_indices] = logits, len(self.exit_block_pos)
         
         exit_logits.append(logits)
         exit_features.append(features)
         
+        if (hard_indices.sum().item() == 0) and not self.training:
+            return outputs, mark
+                       
+        outputs[hard_indices], mark[hard_indices] = torch.mean(torch.stack(exit_logits, dim=1), dim=1), (len(self.exit_block_pos) + 1)
+                       
         if not self.training:
             return outputs, mark
         
