@@ -424,7 +424,7 @@ class InspectionHandler():
             self.result_dict['path_acc_' + str(i)] = []
             self.result_dict['path_ratio_' + str(i)] = []
             self.result_dict['path_cond_' + str(i)] = []
-          
+        
         
     def _result_dict_builder(self, phase):
         """
