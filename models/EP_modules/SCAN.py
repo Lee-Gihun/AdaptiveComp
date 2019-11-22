@@ -47,7 +47,7 @@ class SCAN(nn.Module):
         
         # classifier module
         self._globalavgpool = nn.AvgPool2d(4, 4)
-        self._shallow_classifier = conv1x1(final_channels, num_classes, stride=1)
+        self._shallow_classifier = nn.Linear(final_channels, num_classes)
 
 
     def forward(self, x):
@@ -62,12 +62,12 @@ class SCAN(nn.Module):
         
         features = self._relu(self._botbn2(self._bot1x1_1(x)))
         features = self._globalavgpool(features)
-        
-        logits = self._shallow_classifier(features).squeeze()
         features = features.view(x.size(0), -1)
         
+        logits = self._shallow_classifier(features)
+        
         if self._selection:
-            selection = self._selection(logits, features).squeeze()
+            selection = self._selection(logits, features)
         else:
             selection = logits
         
