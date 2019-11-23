@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from selection import *
+from .selection import *
 
 __all__ = ['SCAN']
 

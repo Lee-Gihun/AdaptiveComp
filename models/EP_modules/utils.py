@@ -11,7 +11,7 @@ class ExitCond(nn.Module):
                         if 'selection', condition of exiting is the value from selection layer 
     """
     def __init__(self, thres=1.0, cond_type='sr'):
-        super(SelCond, self).__init__()
+        super(ExitCond, self).__init__()
         self.thres = thres
         self.cond_type = cond_type
         self.softmax = nn.Softmax(dim=1)
