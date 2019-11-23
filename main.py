@@ -15,6 +15,7 @@ DATASETTER = {'cifar10': cifar_10_setter,
               'cifar100': cifar_100_setter}
 
 CRITERION = {'epe': EPELoss,
+             'scan': SCANLoss,
              'crossentropy': nn.CrossEntropyLoss
             }
              #'hard_smoothing': HardSmoothingLoss,

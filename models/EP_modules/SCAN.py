@@ -21,12 +21,13 @@ def conv1x1(in_planes, out_planes, stride=1):
 
 
 class SCAN(nn.Module):
-    def __init__(self, channels, final_channels=512, stride=2, num_classes=100, cond_type='selection', selection_type='selection1'):
+    def __init__(self, channels, final_channels=512, stride=2, num_classes=100, conf_type='selection', selection_type='selection1'):
         super(SCAN, self).__init__()
-        if cond_type == 'selection':
-            self._selection = SELECTION[selection_type](num_classes, final_channels)
+        if conf_type == 'selection':
+            self.selection = SELECTION[selection_type](num_classes, final_channels)
         else:
-            self._selection = None
+            self.selection = None
+            self.softmax = nn.Softmax(dim=1)
             
         # activation func
         self._relu = nn.ReLU(inplace=True)
@@ -66,9 +67,10 @@ class SCAN(nn.Module):
         
         logits = self._shallow_classifier(features)
         
-        if self._selection:
-            selection = self._selection(logits, features)
+        if self.selection:
+            confidence = self.selection(logits, features)
         else:
-            selection = logits
+            probs = self.softmax(logits)
+            confidence, _ = torch.max(probs, dim=1)
         
-        return logits, features, selection
+        return logits, features, confidence

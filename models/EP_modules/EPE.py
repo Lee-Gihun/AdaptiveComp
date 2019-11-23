@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from selection import *
+from .selection import *
 
 __all__ = ['EPE']
 
@@ -24,12 +24,13 @@ class EPE(nn.Module):
     """
     EPE Module
     """
-    def __init__(self, channels, final_channels=512, stride=2, expansion=2, num_classes=100, cond_type='selection', selection_type='selection1'):
+    def __init__(self, channels, final_channels=512, stride=2, expansion=2, num_classes=100, conf_type='selection', selection_type='selection1'):
         super(EPE, self).__init__()
-        if cond_type == 'selection':
+        if conf_type == 'selection':
             self._selection = SELECTION[selection_type](num_classes, final_channels)
         else:
             self._selection = None
+            self.softmax = nn.Softmax(dim=1)
             
         # activation func
         self._relu = nn.ReLU(inplace=True)
@@ -64,8 +65,9 @@ class EPE(nn.Module):
         logits = self._shallow_classifier(features)
         
         if self._selection:
-            selection = self._selection(logits, features)
+            confidence = self._selection(logits, features)
         else:
-            selection = logits
+            probs = self.softmax(logits)
+            confidence, _ = torch.max(probs, dim=1)
             
-        return logits, features, selection
+        return logits, features, confidence

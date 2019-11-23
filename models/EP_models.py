@@ -42,48 +42,28 @@ class EP_Model(nn.Module):
                                         final_channels=self.BackboneNet.planes[-1],
                                         stride=param.ep.stride[idx],
                                         num_classes=param.num_classes,
-                                        cond_type=param.ep.cond_type, 
+                                        conf_type=param.ep.conf_type, 
                                         selection_type=param.ep.selection_type))
         self.EPNet = nn.ModuleList(ep_modules)
         
-        assert param.ep.cond_type in ['sr', 'selection'], 'Condition type must be sr or selection'
+        assert param.ep.conf_type in ['sr', 'selection'], 'Confidence type must be sr or selection'
         
-        # +1 is for BackboneNet ExitCond layer
-        self.exit_cond = [ExitCond(1, param.ep.cond_type)] * (len(param.exit_block_pos) + 1)
-        
-        if param.ep.cond_type == 'selection':
+        if param.ep.conf_type == 'selection':
             self.selection = SELECTION[param.ep.selection_type](param.num_classes, self.BackboneNet.planes[-1])
         else:
             self.selection = None
+            self.softmax = nn.Softmax(dim=1)
             
         self.num_classes = param.num_classes
-        
-    def condition_updater(self, thres):
-        for i, cond in enumerate(self.exit_cond):
-            cond.thres = thres[i]
-    
-    def early_prediction(self, x, hard_indices, idx):
-        logits, features, selection = self.EPNet[idx](x)
-        with torch.no_grad():
-            cond_up, cond_down = self.exit_cond[idx](selection)
-            
-            easy_indices = copy.deepcopy(hard_indices)
-            
-            easy_indices[easy_indices][cond_down] = False
-            hard_indices[hard_indices][cond_up] = False
-            
-            x = x[cond_down]
-            
-        return x, features, logits, easy_indices, hard_indices
     
     def ensemble_prediction(self, logits, features, hard_indices):
         if self.selection:
-            selection = self.selection(logits, features)
+            confidence = self.selection(logits, features)
         else:
-            selection = logits
+            probs = self.softmax(logits)
+            confidence, _ = torch.max(probs, dim=1)
             
         with torch.no_grad():
-            cond_up, cond_down = self.exit_cond[-1](selection)
             
             easy_indices = copy.deepcopy(hard_indices)
             
@@ -102,22 +82,18 @@ class EP_Model(nn.Module):
         mark = torch.zeros(x.size(0)).long().to(device)
         hard_indices = torch.ones(x.size(0), dtype=torch.bool).to(device)
         
-        exit_logits, exit_features = [], []
+        exit_logits, exit_features, exit_confidence = [], [], []
         if not self.use_small:
             x = self.BackboneNet.conv_stem(x)
             
         for idx, pos in enumerate(self.exit_block_pos):
             # Small-Large network architecture
             if pos == 0:
-                x, features, logits, easy_indices, hard_indices = self.early_prediction(x, hard_indices, idx)
-                
-                outputs[easy_indices], mark[easy_indices] = copy.deepcopy(logits.detach()), idx
+                logits, features, confidence = self.EPNet[idx](x)
                 
                 exit_logits.append(copy.deepcopy(logits.detach()))
                 exit_features.append(copy.deepcopy(features.detach()))
-                
-                if (x.size(0) == 0) and not self.training:
-                    return outputs, mark
+                exit_confidence.append(copy.deepcopy(confidence.detach()))
                 
                 x = self.conv_stem(x)
                 
@@ -126,16 +102,12 @@ class EP_Model(nn.Module):
                 start_block = 0 if idx == 0 else self.exit_block_pos[idx-1]
                 for b in range(start_block, pos):
                     x = self.BackboneNet.block_layers[b](x)
-                    
-                x, features, logits, easy_indices, hard_indices = self.early_prediction(x, hard_indices, idx)
                 
-                outputs[easy_indices], mark[easy_indices] = copy.deepcopy(logits.detach()), idx
+                logits, features, confidence = self.EPNet[idx](x)
                 
                 exit_logits.append(copy.deepcopy(logits.detach()))
                 exit_features.append(copy.deepcopy(features.detach()))
-                
-                if (x.size(0) == 0) and not self.training:
-                    return outputs, mark
+                exit_confidence.append(copy.deepcopy(confidence.detach()))
                 
         # forward for remained block and pool_linear layer
         start_block = self.exit_block_pos[-1]
@@ -143,20 +115,15 @@ class EP_Model(nn.Module):
             x = self.BackboneNet.block_layers[b](x)
         
         logits, features = self.BackboneNet.pool_linear(x)
-        print(hard_indices.sum().item())
-        easy_indices, hard_indices = self.ensemble_prediction(logits, features, hard_indices)
-                       
-        outputs[easy_indices], mark[easy_indices] = logits, len(self.exit_block_pos)
         
-        exit_logits.append(logits)
-        exit_features.append(features)
+        if self.selection:
+            confidence = self.selection(logits, features)
+        else:
+            probs = self.softmax(logits)
+            confidence, _ = torch.max(probs, dim=1)
+            
+        exit_logits.append(copy.deepcopy(logits.detach()))
+        exit_features.append(copy.deepcopy(features.detach()))
+        exit_confidence.append(copy.deepcopy(confidence.detach()))
         
-        if (hard_indices.sum().item() == 0) and not self.training:
-            return outputs, mark
-                       
-        outputs[hard_indices], mark[hard_indices] = torch.mean(torch.stack(exit_logits, dim=1), dim=1), (len(self.exit_block_pos) + 1)
-                       
-        if not self.training:
-            return outputs, mark
-        
-        return exit_logits, exit_features
+        return exit_logits, exit_features, exit_confidence

@@ -11,7 +11,7 @@ import os
 __all__ = ['TrainHandler']
 
 class TrainHandler():
-    def __init__(self, model, dataloaders, dataset_sizes, criterion, optimizer, scheduler=None, device=None, path='./results', mixup=False, alpha=1.0, precision=32, prune=False, early_exit=False, rand_smooth=0.0):
+    def __init__(self, model, dataloaders, dataset_sizes, criterion, optimizer, scheduler=None, device=None, path='./results', mixup=False, alpha=1.0, precision=32, prune=False, early_pred=False, rand_smooth=0.0):
         # If device is None, get default device
         if device == None:
             self.device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
@@ -31,7 +31,7 @@ class TrainHandler():
         self.mixup         = mixup
         self.alpha         = alpha
         self.prune         = prune
-        self.early_exit    = early_exit
+        self.early_pred    = early_pred
         self.rand_smooth   = rand_smooth
         
         # Set model precision if precision is specified
@@ -80,8 +80,8 @@ class TrainHandler():
         result_log['valid_loss'] = []
         result_log['train_acc']  = []
         result_log['valid_acc']  = []
-        result_log['test_loss']  = 0.0
-        result_log['test_acc']   = 0.0
+        result_log['test_loss']  = None
+        result_log['test_acc']   = None
 
         return result_log
 
@@ -109,13 +109,16 @@ class TrainHandler():
         self.result_log['train_acc']  += train_accs[-log_freq:]
         self.result_log['valid_acc']  += valid_accs[-log_freq:]
 
-    def _print_train_stat(self, epoch, num_epochs, epoch_elapse, train_loss, train_acc, valid_loss, valid_acc, learning_rate, early_exit=False, valid_early_exits=None):
+    def _print_train_stat(self, epoch, num_epochs, epoch_elapse, train_loss, train_acc, valid_loss, valid_acc, learning_rate, early_pred=False):
         print('[Epoch {}/{}] Elapsed {}s/it'.format(epoch, num_epochs, epoch_elapse))
         print('[{}] Loss - {:.4f}, Acc - {:2.2f}%, Learning Rate - {:0.6f}'.format('Train', train_loss, train_acc * 100, learning_rate))
-        print('[{}] Loss - {:.4f}, Acc - {:2.2f}%'.format('Valid', valid_loss, valid_acc * 100))
-        if early_exit:
-            valid_early_exit = valid_early_exits[-1][1]
-            print('[{}] Early_Exit percentage - {:.2f}'.format('Valid', valid_early_exit * 100))
+        
+        if early_pred:
+            # valid_acc is list of valid accuracy for each exit paths
+            print(('[{}] Loss - {:.4f}, Acc of each path - '.format('Valid', valid_loss)) + ('{:2.2f}%, ' * len(valid_acc))[:-2].format(*[math.floor((va * 10000) / 100) for va in valid_acc]))
+        else:
+            # valid_acc is just a scalar value
+            print('[{}] Loss - {:.4f}, Acc - {:2.2f}%'.format('Valid', valid_loss, valid_acc * 100))
         #print('Memory Usage: {:.2f} MB'.format(torch.cuda.memory_allocated(self.device_idx) / 1024 / 1024))
         #print('Memory Cached: {:.2f} MB'.format(torch.cuda.memory_cached(self.device_idx) / 1024 / 1024))
         #print('Max Memory Usage: {:.2f} MB'.format(torch.cuda.max_memory_allocated(self.device_idx) / 1024 / 1024))
@@ -157,8 +160,8 @@ class TrainHandler():
         
         return rand_sample
 
-    def __mixup_criterion(self, criterion, pred, y_a, y_b, lam):
-        return lam * criterion(pred, y_a) + (1 - lam) * criterion(pred, y_b)
+    def __mixup_criterion(self, criterion, outputs, y_a, y_b, lam):
+        return lam * criterion(outputs, y_a) + (1 - lam) * criterion(outputs, y_b)
 
     def _epoch_phase(self, phase):
         if phase == 'train':
@@ -167,9 +170,10 @@ class TrainHandler():
             self.model.eval()
 
         running_loss = 0.0
-        running_correct = 0.0
-        if self.early_exit:
-            early_exit = 0.0
+        if self.early_pred:
+            running_correct = [0.0] * (len(self.model.exit_block_pos) + 1)
+        else:
+            running_correct = 0.0
 
         for inputs, labels in self.dataloaders[phase]:
             inputs = inputs.to(self.device)
@@ -213,10 +217,6 @@ class TrainHandler():
                     preds = self.prediction(outputs)
                     loss = self.__mixup_criterion(self.criterion, outputs, labels_a, labels_b, lam)
                     
-                if self.early_exit and phase != 'train':
-                    preds, exit_mark = preds[0], preds[1]
-                    early_exit += torch.sum(exit_mark == 1)
-                    
                 if phase == 'train':
                     # Backward pass
                     loss.backward()
@@ -226,22 +226,25 @@ class TrainHandler():
 
             # Statistics
             running_loss += loss.item() * inputs.size(0)
-            running_correct += torch.sum(preds == labels.data)
+            if self.early_pred:
+                # length of preds is same with early prediction paths
+                for idx, pred in enumerate(preds):
+                    running_correct[idx] += torch.sum(pred == labels.data)
+            else:
+                # length of preds is 1
+                running_correct += torch.sum(preds == labels.data)
         
         if (phase == 'train') and (self.scheduler != None):
             self.scheduler.step()
         
         if self.dataset_sizes[phase] == 0:
-            if self.early_exit and phase != 'train':
-                return 0.0, 0.0, 0.0
-            
             return 0.0, 0.0
             
         epoch_loss = running_loss / self.dataset_sizes[phase]
-        epoch_acc  = (running_correct.double() / self.dataset_sizes[phase]).item()
-        if self.early_exit and phase != 'train':
-            epoch_early_exit = (early_exit.double() / self.dataset_sizes[phase]).item()
-            return epoch_loss, epoch_acc, epoch_early_exit
+        if self.early_pred:
+            epoch_acc = [(rc.double() / self.dataset_sizes[phase]).item() for rc in running_correct]
+        else:
+            epoch_acc  = (running_correct.double() / self.dataset_sizes[phase]).item()
 
         return epoch_loss, epoch_acc
 
@@ -267,10 +270,7 @@ class TrainHandler():
             epoch_start = time.time()
             train_loss, train_acc = self._epoch_phase('train')
             if epoch % valid_freq == 0:
-                if self.early_exit:
-                    valid_loss, valid_acc, valid_early_exit = self._epoch_phase('valid')
-                else:
-                    valid_loss, valid_acc = self._epoch_phase('valid')
+                valid_loss, valid_acc = self._epoch_phase('valid')
                     
             epoch_elapse = round(time.time() - epoch_start, 3)
             
@@ -281,8 +281,6 @@ class TrainHandler():
             if epoch % valid_freq == 0:
                 valid_losses.append((epoch, valid_loss))
                 valid_accs.append((epoch, valid_acc))
-                if self.early_exit:
-                    valid_early_exits.append((epoch, valid_early_exit))
                 
             # Update the best validation accuracy
             if valid_acc > best_acc:
@@ -296,7 +294,7 @@ class TrainHandler():
 
             # Print stat based on print_freq
             if epoch % print_freq == 0:
-                self._print_train_stat(epoch, self.num_epochs, epoch_elapse, train_loss, train_acc, valid_loss, valid_acc, self._get_learning_rate(), early_exit=self.early_exit, valid_early_exits=valid_early_exits)
+                self._print_train_stat(epoch, self.num_epochs, epoch_elapse, train_loss, train_acc, valid_loss, valid_acc, self._get_learning_rate(), early_pred=self.early_pred)
 
             if early_stop:
                 early_stopping(valid_loss, self.model)
@@ -315,6 +313,12 @@ class TrainHandler():
 
         return train_losses, valid_losses, train_accs, valid_accs
 
+    def __result_log_plot(self, result_dict, name):
+        result_logger(result_dict, self.num_epochs, self.path, name)
+        
+        train_plotter(result_dict['train_loss'], result_dict['valid_loss'], result_dict['test_loss'], 'loss', self.path, name, True, plot_freq)
+        train_plotter(result_dict['train_acc'], result_dict['valid_acc'], result_dict['test_acc'], 'accuracy', self.path, name, True, plot_freq)
+        
     def test_model(self, topk=(1,), plot_freq=0.1, device=None, pretrained=False):
         if (device != None) and (device != self.device):
             self.device = device
@@ -324,26 +328,40 @@ class TrainHandler():
         test_loss, test_acc = self._epoch_phase('test')
 
         # Test result
-        print('[{}] Loss - {:.4f}, Acc - {:2.2f}%'.format('Test', test_loss, math.floor(test_acc * 10000) / 100))
+        if self.early_pred:
+            # test_acc is list of valid accuracy for each exit paths
+            print(('[{}] Loss - {:.4f}, Acc of each path - '.format('Test', test_loss)) + ('{:2.2f}%, ' * len(valid_acc))[:-2].format(*[math.floor((ta * 10000) / 100) for ta in test_acc]))
+        else:
+            # test_acc is just a scalar value
+            print('[{}] Loss - {:.4f}, Acc - {:2.2f}%'.format('Test', test_loss, math.floor(test_acc * 10000) / 100))
         print()
         
         if not pretrained:
             self.result_log['test_loss'] = test_loss
             self.result_log['test_acc']  = test_acc
-            result_logger(self.result_log, self.num_epochs, self.path, self.name)
+            
+            if self.early_pred:
+                # test_acc is list which length of early prediction path
+                for idx, ta in enumerate(test_acc):
+                    name = self.name + '_path%d' % idx
+                    result_dict['train_loss'] = self.result_log['train_loss']
+                    result_dict['valid_loss'] = self.result_log['valid_loss']
+                    result_dict['test_loss'] = self.result_log['test_loss']
+                    result_dict['train_acc'] = [(ta[0], ta[1][idx]) for ta in self.result_log['train_acc']]
+                    result_dict['valid_acc'] = [(ta[0], ta[1][idx]) for ta in self.result_log['valid_acc']]
+                    result_dict['test_acc'] = [(ta[0], ta[1][idx]) for ta in self.result_log['test_acc']]
+                    
+                    self.__result_log_plot(result_dict, name)
         
-            train_plotter(self.result_log['train_loss'], self.result_log['valid_loss'], self.result_log['test_loss'], 'loss', self.path, self.name, True, plot_freq)
-            train_plotter(self.result_log['train_acc'], self.result_log['valid_acc'], self.result_log['test_acc'], 'accuracy', self.path, self.name, True, plot_freq)
-
+            else:
+                self.__result_log_plot(self.result_log, self.name)
+                
             # Save test result to model info
             self.model_info['performance'] = {'loss': test_loss, 'accuracy': test_acc}
             model_saver(self.model, self.init_states['model'], self.model_info, self.path, 'trained_models', self.name)
             
             self.result_log = self.__init_result_log()
             self.model_info['performance'] = None
-
-        if self.early_exit:
-            return test_loss, test_acc, test_early_exit
         
         return test_loss, test_acc
 

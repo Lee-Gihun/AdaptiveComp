@@ -2,10 +2,11 @@ import os
 import json
 import copy
 import torch
+import torch.nn as nn
 import numpy as np
 import matplotlib.pyplot as plt
 
-__all__ = ['ConfLoader', 'model_saver', 'result_logger', 'result_dict_saver', 'EarlyStopping']
+__all__ = ['ConfLoader', 'model_saver', 'result_logger', 'result_dict_saver', 'EarlyStopping', 'ConfCond']
 
 
 class ConfLoader:
@@ -172,3 +173,18 @@ class EarlyStopping():
             
         self.best_model = copy.deepcopy(model.state_dict())
         self.val_loss_min = val_loss
+
+        
+class ConfCond(nn.Module):
+    """
+    from the confidence value, decides whether the samples are above or below threshold.
+    """
+    def __init__(self, thres=1.0):
+        super(ConfCond, self).__init__()
+        self.thres = thres
+
+    def forward(self, confidence):
+        cond_up = (confidence > self.thres)
+        cond_down = (confidence <= self.thres)
+        
+        return cond_up, cond_down

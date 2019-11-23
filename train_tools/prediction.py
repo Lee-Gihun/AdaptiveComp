@@ -1,11 +1,11 @@
 __all__ = ['ep_prediction']
 
 def ep_prediction(outputs):
+    preds = []
     if len(outputs) == 3:
-        exit, features, selection = outputs
-        _, preds = exit[-1].max(dim=1)
-    
-    else:
-        output, mark = outputs
-        _, preds = output.max(dim=1)
+        logits, features, confidence = outputs
+        for logit in logits:
+            _, pred = logit.max(dim=1)
+            preds.append(pred)
+            
     return preds
