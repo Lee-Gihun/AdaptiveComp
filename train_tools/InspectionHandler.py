@@ -19,8 +19,7 @@ class InspectionHandler():
     2) Risk-Coverage Trade-off
     3) Confidence(Softmax Response) & Entropy distribution
     """
-    def __init__(self, Network, dataloaders, dataset_sizes, device='cuda:0', phase='test',
-                 num_path=1, path_cost=(1,), base_setting=True, tolerance=0.001, path='./results'):
+    def __init__(self, Network, dataloaders, dataset_sizes, use_ensemble=True, num_classes=100, device='cuda:0', phase='test', num_path=1, path_cost=(1,), base_setting=True, tolerance=0.001, path='./results'):
         """
         [args]      (int) num_path : the number of adaptive paths of inference 
                     (tuple) path_cost : relative cost of path flops w.r.t. total flops ex) (0.3, 0.7, 1.15)
@@ -34,7 +33,9 @@ class InspectionHandler():
         self.dataset_sizes = dataset_sizes
         self.device = device
         self.phase = phase
-        self.num_path = num_path
+        self.use_ensemble = 1 if use_ensemble else 0
+        self.num_classes = num_classes
+        self.num_path = num_path + self.use_ensemble
         self.path_cost = path_cost
         self.path = path
         self.name = 'test' # default experiment name is 'test'
@@ -61,9 +62,7 @@ class InspectionHandler():
                     (list) path_acc : list of accuracy for paths
                     (list) path_ratio : list of count ratio for paths
                     (float) score : flops score for carried out inference
-        """
-        self._condition_setter(exit_cond)
-        
+        """        
         path_correct, path_count = [0] * (self.num_path), [0] * (self.num_path)
         size = self.dataset_sizes[phase]
                  
@@ -72,7 +71,7 @@ class InspectionHandler():
                 inputs, labels = inputs.to(self.device), labels.to(self.device)
 
                 # Inference from Network
-                outputs, mark = self._forward(inputs)
+                outputs, mark, _ = self._forward(inputs, exit_cond)
                 pred = self._prediction(outputs)
                 
                 path_mark = []
@@ -107,7 +106,8 @@ class InspectionHandler():
         RC_plotter(self.result_dict, num_path=self.num_path, result_path=self.path, model_name=self.name)
         logit_plotter(self.result_dict, num_path=self.num_path, result_path=self.path, model_name=self.name)
         performance_plotter(self.result_dict, num_path=self.num_path, result_path=self.path, model_name=self.name)
-    
+
+        
     def grid_inspector(self, start_cond, grid=0.01, clean_before=True):
         """
         Inspection for grid condition.
@@ -162,8 +162,7 @@ class InspectionHandler():
                     (tuple) (correctness, confidence_sr, confidence_ent) : tensors of correctness & confidence values
         """
         # Set full path condition
-        condition = self._fullcond_setter(path_idx)
-        self._condition_setter(condition)
+        exit_cond = self._fullcond_setter(path_idx)
 
         correctness, confidence_sr, confidence_ent = None, None, None
         
@@ -177,14 +176,8 @@ class InspectionHandler():
                 inputs, labels = inputs.to(self.device), labels.to(self.device)
                 
                 # inference & prediction
-                outputs, _ = self._forward(inputs)
+                outputs, _, conf = self._forward(inputs, exit_cond)
                 pred = self._prediction(outputs)
-                
-                # SR(softmax response)
-                soft_out = F.softmax(outputs, dim=1)
-                
-                # maximum softmax response
-                max_sr, _ = soft_out.max(dim=1) # maximum SR
                 
                 # top-10 entropy of softmax resnponse
                 top5_out, _ = torch.topk(soft_out, 5) # top-5 SR
@@ -195,7 +188,7 @@ class InspectionHandler():
                 inco_tensor = pred != labels
                                     
                 # get values for correct/incorrect samples
-                co_sr, inco_sr = max_sr[co_tensor].tolist(), max_sr[inco_tensor].tolist()
+                co_sr, inco_sr = conf[co_tensor].tolist(), conf[inco_tensor].tolist()
                 co_entropy, inco_entropy = entropy[co_tensor].tolist(), entropy[inco_tensor].tolist()
 
                 # update max_sr list
@@ -208,7 +201,7 @@ class InspectionHandler():
                 
                 # update correct / confidence
                 correctness = self._concat_tensor(correctness, co_tensor)
-                confidence_sr = self._concat_tensor(confidence_sr, max_sr)
+                confidence_sr = self._concat_tensor(confidence_sr, conf)
                 confidence_ent = self._concat_tensor(confidence_ent, entropy)
 
         return (max_sr_co, max_sr_inco), (entropy_co, entropy_inco), (correctness, confidence_sr, confidence_ent)
@@ -276,20 +269,39 @@ class InspectionHandler():
         return risk, coverage, perfect_coverage
 
             
-    def _forward(self, x):
+    def _forward(self, x, exit_cond):
         """
         Inference for a single batch. 
         
         [returns]   (Tensor) outputs : inference result tensor
                     (Tensor) mark : mark tensor for paths. None if no adaptive path exits.
         """
-        if self.path_cost is not None: # if use adaptive path
-            outputs, mark = self.Network(x)
-            
-        else: # if do not use adaptive computation, all mark is 0
-            outputs, mark = self.Network(x), torch.zeros(x.size(0))
+        exit, feature, confidence = self.Network(x)
         
-        return outputs, mark
+        outputs = torch.zeros(x.size(0), self.num_classes).to(self.device)
+        mark = torch.zeros(x.size(0)).long().to(self.device)
+        conf = torch.zeros(x.size(0)).to(self.device)
+        empty_indices = torch.ones(x.size(0)).bool().to(self.device)
+        
+        ensemble = sum(exit)/len(exit)
+        
+        for i in range(len(exit)):
+            with torch.no_grad():
+                cond_up = confidence[i] > exit_cond[i]
+                cond_down = confidence[i] <= exit_cond[i]
+                
+                fill_indices = copy.deepcopy(empty_indices)
+                fill_indices[fill_indices][cond_down] = False # fill only cond_up
+                empty_indices[empty_indices][cond_up] = False # empty only cond_down
+                
+                outputs[fill_indices], mark[fill_indices], conf[fill_indices] = \
+                exit[i][fill_indices], i, confidence[i][fill_indices]
+        
+        outputs[empty_indices] = ensemble[empty_indices]
+        mark[empty_indices] = len(exit)
+        confidence[empty_indices] = ensemble.softmax(dim=1).max(dim=1)[0]
+        
+        return outputs, mark, conf
              
     
     def _prediction(self, outputs):
@@ -321,22 +333,6 @@ class InspectionHandler():
             score = 1
 
         return score
-    
-    
-    def _condition_setter(self, exit_cond):
-        """
-        Sets exiting threshold for each paths in Network.
-        
-        [args]      (list or tuple) cond: exiting threshold condition for the paths ex) (0.9, 0.97, 0.84)
-        """
-        if not exit_cond: # if exit_cond is not exist
-            pass
-        
-        else:
-            assert (self.num_path-1) == len(exit_cond), 'the number of exit_cond should 1 less than the number of paths!'
-            # [!Caution] self.Network must have method 'condition_updater'
-            self.Network.condition_updater(exit_cond) 
-
 
     
     def _fullcond_setter(self, path_idx):
