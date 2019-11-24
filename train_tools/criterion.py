@@ -3,25 +3,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 import math
 
-__all__ = ['CELoss', 'SCANLoss', 'EPELoss', 'SoftSmoothingLoss']
-
-
-
-class CELoss(nn.Module):
-    def __init__(self):
-        super(CELoss, self).__init__()
-        self.CE = nn.CrossEntropyLoss()
-
-            
-    def forward(self, outputs, target):
-        exit, feature, selection = outputs
-        total_loss = self.CE(exit[-1], target)
-        return total_loss
-
+__all__ = ['SCANLoss', 'EPELoss', 'SoftSmoothingLoss']
 
 
 class SCANLoss(nn.Module):
-    def __init__(self, alpha=0.5, beta=5e-7, hard=False, soft=False, position_flops=(0.27, 0.52, 0.76)):
+    def __init__(self, alpha=0.5, beta=5e-7, hard=False, soft=False, position_flops=[0.27, 0.52, 0.76]):
         super(SCANLoss, self).__init__()
         self.alpha, self.beta, self.hard, self.soft = alpha, beta, hard, soft
         self.CE = nn.CrossEntropyLoss()
@@ -34,42 +20,44 @@ class SCANLoss(nn.Module):
             self.soft_smooth = SoftSmoothingLoss()
             
     def forward(self, outputs, target):
-        exit, feature, selection = outputs
+        logits, features, selection = outputs
 
-        teacher_feature = feature[-1].detach()
-        feature_loss = ((teacher_feature - feature[2])**2 + \
-                        (teacher_feature - feature[1])**2 + \
-                        (teacher_feature - feature[0])**2).sum()
+        feature_loss = 0.0
+        teacher_feature = features[-1].detach()
+        for feature in features:
+            feature_loss += ((teacher_feature - feature)**2).sum()
         
         #   for deepest classifier
-        total_loss = self.CE(exit[-1], target)
+        total_loss = self.CE(logits[-1], target)
 
         #   for shallow classifiers
-        teacher_output = exit[-1].detach()
+        teacher_output = logits[-1].detach()
         teacher_output.requires_grad = False
 
-        for i in range(0, len(exit)-1):
-            total_loss += self.alpha * self._kldivloss(exit[i], teacher_output)
-            total_loss += (1-self.alpha) * self.CE(exit[i], target) 
+        for i in range(0, len(logits)-1):
+            total_loss += self.alpha * self._kldivloss(logits[i], teacher_output)
+            total_loss += (1 - self.alpha) * self.CE(logits[i], target) 
             if self.hard:
-                total_loss += self.hard_smooth(exit[i], target, selection[i], self.hard_target[i])
+                total_loss += self.hard_smooth(logits[i], target, selection[i], self.hard_target[i])
                 
             if (self.soft) and not (self.hard):
-                total_loss += self.soft_smooth(exit[i], target)
+                total_loss += self.soft_smooth(logits[i], target)
 
-        total_loss += self.beta * feature_loss
+        if self.alpha != 0:
+            total_loss += self.beta * feature_loss
         
         return total_loss
     
     def _kldivloss(self, outputs, targets):
         log_softmax_outputs = F.log_softmax(outputs/3.0, dim=1)
         softmax_targets = F.softmax(targets/3.0, dim=1)
-        loss = -9*(log_softmax_outputs * softmax_targets).sum(dim=1).mean()
+        loss = -9 * (log_softmax_outputs * softmax_targets).sum(dim=1).mean()
+        
         return loss
 
     
 class EPELoss(nn.Module):
-    def __init__(self, alpha=0.5, beta=5e-5, hard=False, soft=False, position_flops=(0.27, 0.52, 0.76)):
+    def __init__(self, alpha=0.5, beta=5e-5, hard=False, soft=False, position_flops=[0.27, 0.52, 0.76]):
         super(EPELoss, self).__init__()
         self.alpha, self.beta, self.hard, self.soft = alpha, beta, hard, soft
         self.CE = nn.CrossEntropyLoss()
@@ -83,24 +71,24 @@ class EPELoss(nn.Module):
             self.soft_smooth = SoftSmoothingLoss()
             
     def forward(self, outputs, target):
-        exit, feature, selection = outputs
-        total_loss = self.CE(exit[-1], target)
+        logits, features, selection = outputs
+        total_loss = self.CE(logits[-1], target)
 
-        for i in range(len(exit)-1):
-            total_loss = (1-self.alpha)*self.CE(exit[i], target)
+        for i in range(len(logits)-1):
+            total_loss = (1-self.alpha)*self.CE(logits[i], target)
             
             if self.hard:
-                total_loss += self.hard_smooth(exit[i], target, selection[i], self.hard_target[i])
+                total_loss += self.hard_smooth(logits[i], target, selection[i], self.hard_target[i])
                 
             if (self.soft) and not (self.hard):
-                total_loss += self.soft_smooth(exit[i], target)
+                total_loss += self.soft_smooth(logits[i], target)
             
             # kldiv loss
-            kl_loss = 9*self.KL((exit[i]/3).softmax(dim=1), (exit[-1]/3).softmax(dim=1))
+            kl_loss = 9*self.KL((logits[i]/3).softmax(dim=1), (logits[-1]/3).softmax(dim=1))
             total_loss += self.alpha*kl_loss
             
             # feature mse loss
-            total_loss += self.beta*self.MSE(feature[i], feature[-1])
+            total_loss += self.beta*self.MSE(features[i], features[-1])
             
         return total_loss
     
@@ -113,8 +101,8 @@ class HardSmoothingLoss(nn.Module):
             self.ce = SoftSmoothingLoss()
         self.cover_lamb = cover_lamb
         
-    def forward(self, exit, target, selection, hard_target):
-        hard_clasloss = self.ce(exit*selection.unsqueeze(1), target)
+    def forward(self, logits, target, selection, hard_target):
+        hard_clasloss = self.ce(logits*selection.unsqueeze(1), target)
         hard_coverloss = max(hard_target - selection.mean(), 0)**2
         select_hard = hard_clasloss + self.cover_lamb * hard_coverloss
         return select_hard

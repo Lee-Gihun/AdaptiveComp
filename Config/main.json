@@ -28,15 +28,14 @@
     },
     "trainhandler": {
         "seed": 100,
-        "device": "cuda:0",
+        "device": "cuda:1",
         "path": "./results",
-        "name": "test2",
+        "name": "SCAN",
         "num_epochs" : 200,
-        "ep_prediction" : true,
-        "train": false
+        "early_pred" : true
     },
     "inspectionhandler": {
-        "enabled": true,
+        "enabled": false,
         "num_path": 4,
         "path_cost": [1,1,1,1],
         "phase": "test"
@@ -54,8 +53,8 @@
             }
         },
         "pretrained":{
-            "enabled": true,
-            "fpath": "./results/trained_models/test"
+            "enabled": false,
+            "fpath": "./results/trained_models/SCAN"
         }
     }
 }

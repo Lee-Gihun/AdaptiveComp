@@ -65,8 +65,8 @@ def cifar_100_setter(batch_size=128, valid_size=5000, pin_memory=False, num_work
         random.seed(2019)
     # Data augmentation and normalization for training
     # Just normalization for validation
-    mean = [0.5071, 0.4867, 0.4408]
-    stdv = [0.2675, 0.2565, 0.2761]
+    mean = [0.4914, 0.4822, 0.4465]
+    stdv = [0.2023, 0.1994, 0.2010]
     train_transform_list = [
         transforms.RandomCrop(32, padding=4),
         transforms.RandomHorizontalFlip(),

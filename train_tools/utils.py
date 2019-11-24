@@ -96,9 +96,11 @@ def model_saver(trained_model, initial_model, model_info=None, result_path='./re
     
     
 
-def result_logger(result_dict, epoch_num, result_path='./results', model_name='model', make_dir=True):
+def result_logger(result_dict, epoch_num, result_path='./results', model_name='model', make_dir=True, early_pred=False):
     """
     saves train results as .csv file
+    
+    if early_pred == True, all accuracy in result_dict is List type, not float type.
     """
     log_path = result_path + '/logs'
     file_name = model_name + '_results.csv'
@@ -115,10 +117,18 @@ def result_logger(result_dict, epoch_num, result_path='./results', model_name='m
                 if type(item) is not list:
                     row.append('')
 
-                elif item[i][1] is not None:
+                elif item[i][1] is not None and type(item[i][1]) == float:
                     assert item[i][0] == (i+1), 'Not aligned epoch indices'
                     elem = round(item[i][1], 5)
                     row.append(str(elem))
+                        
+                elif item[i][1] is not None and type(item[i][1]) == list:
+                    assert item[i][0] == (i+1), 'Not aligned epoch indices'
+                    elem = '['
+                    for e in item[i][1]:
+                        elem += (str(round(e, 5)) + ' ')
+                    elem = elem[:-1] + ']'
+                    row.append(elem)
                     
                 else:
                     row.append('')
@@ -127,7 +137,10 @@ def result_logger(result_dict, epoch_num, result_path='./results', model_name='m
             f.write(','.join(row) + '\n')
             
         sep = len(result_dict.keys()) - 2
-        f.write(','*sep + '%0.5f, %0.5f'% (result_dict['test_loss'], result_dict['test_acc']))
+        if type(result_dict['test_acc']) == float:
+            f.write(','*sep + '%0.5f, %0.5f' % (result_dict['test_loss'], result_dict['test_acc']))
+        else:
+            f.write(','*sep + '%0.5f, [' % result_dict['test_loss'] + ('%0.5f '*len(result_dict['test_acc']) % result_dict['test_acc'])[:-1] + ']')
         
     print('results are logged at: \'%s' % save_path)    
 

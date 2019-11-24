@@ -13,9 +13,7 @@ DATASETTER = {'cifar10': cifar_10_setter,
               'cifar100': cifar_100_setter}
 
 CRITERION = {'epe': EPELoss,
-             'scan': SCANLoss,
-             'ce': CELoss}
-        
+             'scan': SCANLoss}
         
 OPTIMIZER = {'sgd': optim.SGD}
 
@@ -25,13 +23,19 @@ SCHEDULER = {'step': lr_scheduler.StepLR,
 
 
 def _get_dataset(param):
-    dataloaders, dataset_sizes = DATASETTER[param.dataset](root=param.root, batch_size=param.batch_size, valid_size=param.valid_size)
+    dataloaders, dataset_sizes = DATASETTER[param.dataset](root=param.root, 
+                                                           batch_size=param.batch_size, 
+                                                           valid_size=param.valid_size)
+    
     return dataloaders, dataset_sizes
 
 
 def _get_model(opt):
     param = opt.model.param
-    model = EP_Model(BackboneNet=opt.model.BackboneNet, EPNet=opt.model.EPNet, param = opt.model.param)
+    model = EP_Model(BackboneNet=opt.model.BackboneNet,
+                     EPNet=opt.model.EPNet, 
+                     param = opt.model.param)
+    
     return model
 
 
@@ -43,8 +47,18 @@ def _get_trainhandler(opt, model, dataloaders, dataset_sizes):
     else:
         scheduler = None
     
-    train_handler = TrainHandler(model, dataloaders, dataset_sizes, criterion, optimizer, scheduler, device=opt.trainhandler.device, path=opt.trainhandler.path)
-    if opt.trainhandler.ep_prediction:
+    train_handler = TrainHandler(model, 
+                                 dataloaders, 
+                                 dataset_sizes, 
+                                 criterion, 
+                                 optimizer, 
+                                 scheduler, 
+                                 device=opt.trainhandler.device, 
+                                 path=opt.trainhandler.path,
+                                 early_pred=opt.trainhandler.early_pred)
+    
+    # early_pred should be True if load EP_Model
+    if opt.trainhandler.early_pred:
         train_handler.set_prediction(ep_prediction)
     
     train_handler.set_name(opt.trainhandler.name)
@@ -53,7 +67,13 @@ def _get_trainhandler(opt, model, dataloaders, dataset_sizes):
 
 
 def _get_inspectionhandler(opt, model, dataloaders, dataset_sizes):
-    inspection_handler = InspectionHandler(model, dataloaders, dataset_sizes, num_path=opt.inspectionhandler.num_path, path_cost=opt.inspectionhandler.path_cost, phase=opt.inspectionhandler.phase)
+    inspection_handler = InspectionHandler(model, 
+                                           dataloaders, 
+                                           dataset_sizes, 
+                                           num_path=opt.inspectionhandler.num_path, 
+                                           path_cost=opt.inspectionhandler.path_cost, 
+                                           phase=opt.inspectionhandler.phase)
+    
     return inspection_handler
 
 
@@ -67,8 +87,7 @@ def run(opt):
         fpath = opt.model.pretrained.fpath
         pretrained_dict = torch.load(os.path.join(fpath, 'trained_model.pth'), map_location=opt.trainhandler.device)
         train_handler.model.load_state_dict(pretrained_dict, strict=False)
-    
-    if opt.trainhandler.train:
+    else:
         train_handler.train_model(num_epochs=opt.trainhandler.num_epochs)
     
     train_handler.test_model()

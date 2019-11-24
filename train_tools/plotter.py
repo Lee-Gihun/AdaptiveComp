@@ -25,7 +25,7 @@ def train_plotter(train, valid, test, mode, result_path='./results', model_name=
     plt.legend()
     plt.grid()
     plt.xticks([x+1 for x in range(len(train)) if (x+1) % (len(train)*plot_freq) == 0])
-    fname = os.path.join(save_path, '{}_{}_{}.png'.format(model_name, 'graph', mode))
+    fname = os.path.join(save_path, '{}_{}_{}.png'.format(model_name.replace('/', '_'), 'graph', mode))
     plt.savefig(fname)
     print('{} plot saved at {}'.format(mode, fname))
 

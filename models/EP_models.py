@@ -26,19 +26,26 @@ class EP_Model(nn.Module):
     [args] (str)  BackboneNet : backbone network name
            (str)  EPNet       : early prediction network name
            (dict) param       : opt.model dictionary should be here. It has 'num_classes', 'exit_block_pos', 'ep'.
-                                For 'exit_block_pos', if 0 : Small-Large network architecutre
-                                                   elif 1 : exit module after block 1, etc.
+                                For 'exit_block_pos', if None : don't use Early_prediction modules and only use BackboneNet
+                                                      if have 0 value : Small-Large network architecutre
+                                                      if have i value : exit module after block i, etc.
     """
     def __init__(self, BackboneNet, EPNet, param):
         super(EP_Model, self).__init__()
         self.BackboneNet = BACKBONE[BackboneNet](num_classes=param.num_classes)
         
-        assert max(param.exit_block_pos) < len(self.BackboneNet.planes), 'Exit path is bigger than block number of BackboneNet'
+        if not param.exit_block_pos:
+            # Trick not to use EPNet
+            param.exit_block_pos = []
+        else:
+            assert max(param.exit_block_pos) < len(self.BackboneNet.planes), 'Exit path is bigger than block number of BackboneNet'
         self.exit_block_pos = param.exit_block_pos
         self.use_small = True if 0 in param.exit_block_pos else False
         ep_modules = []
-        for idx, _ in enumerate(param.exit_block_pos):
-            ep_modules.append(EP[EPNet](channels=self.BackboneNet.planes[idx],
+        # 3 channels for Small-Large network architecture 
+        channels = self.BackboneNet.planes + [3]
+        for idx, pos in enumerate(param.exit_block_pos):
+            ep_modules.append(EP[EPNet](channels=channels[pos - 1],
                                         final_channels=self.BackboneNet.planes[-1],
                                         stride=param.ep.stride[idx],
                                         num_classes=param.num_classes,
@@ -79,7 +86,7 @@ class EP_Model(nn.Module):
                 exit_features.append(features)
                 exit_confidence.append(confidence)
                 
-                x = self.conv_stem(x)
+                x = self.BackboneNet.conv_stem(x)
                 
             # early prediction for each exit_block_pos
             else:
@@ -94,7 +101,7 @@ class EP_Model(nn.Module):
                 exit_confidence.append(confidence)
                 
         # forward for remained block and pool_linear layer
-        start_block = self.exit_block_pos[-1]
+        start_block = self.exit_block_pos[-1] if self.exit_block_pos else 0
         for b in range(start_block, len(self.BackboneNet.planes)):
             x = self.BackboneNet.block_layers[b](x)
         
