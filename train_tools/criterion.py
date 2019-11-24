@@ -20,7 +20,7 @@ class SCANLoss(nn.Module):
             self.soft_smooth = SoftSmoothingLoss()
             
     def forward(self, outputs, target):
-        logits, features, selection = outputs
+        logits, features, confidence = outputs
 
         feature_loss = 0.0
         teacher_feature = features[-1].detach()
@@ -38,7 +38,7 @@ class SCANLoss(nn.Module):
             total_loss += self.alpha * self._kldivloss(logits[i], teacher_output)
             total_loss += (1 - self.alpha) * self.CE(logits[i], target) 
             if self.hard:
-                total_loss += self.hard_smooth(logits[i], target, selection[i], self.hard_target[i])
+                total_loss += self.hard_smooth(logits[i], target, confidence[i], self.hard_target[i])
                 
             if (self.soft) and not (self.hard):
                 total_loss += self.soft_smooth(logits[i], target)
@@ -71,14 +71,14 @@ class EPELoss(nn.Module):
             self.soft_smooth = SoftSmoothingLoss()
             
     def forward(self, outputs, target):
-        logits, features, selection = outputs
+        logits, features, confidence = outputs
         total_loss = self.CE(logits[-1], target)
 
         for i in range(len(logits)-1):
             total_loss = (1-self.alpha)*self.CE(logits[i], target)
             
             if self.hard:
-                total_loss += self.hard_smooth(logits[i], target, selection[i], self.hard_target[i])
+                total_loss += self.hard_smooth(logits[i], target, confidence[i], self.hard_target[i])
                 
             if (self.soft) and not (self.hard):
                 total_loss += self.soft_smooth(logits[i], target)
@@ -101,9 +101,9 @@ class HardSmoothingLoss(nn.Module):
             self.ce = SoftSmoothingLoss()
         self.cover_lamb = cover_lamb
         
-    def forward(self, logits, target, selection, hard_target):
-        hard_clasloss = self.ce(logits*selection.unsqueeze(1), target)
-        hard_coverloss = max(hard_target - selection.mean(), 0)**2
+    def forward(self, logits, target, confidence, hard_target):
+        hard_clasloss = self.ce(logits*confidence.unsqueeze(1), target)
+        hard_coverloss = max(hard_target - confidence.mean(), 0)**2
         select_hard = hard_clasloss + self.cover_lamb * hard_coverloss
         return select_hard
 
