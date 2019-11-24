@@ -6,7 +6,7 @@
         "valid_size": 5000
     },    
     "criterion": {
-        "algo": "ce",
+        "algo": "scan",
         "param":{
         }
     },
@@ -30,13 +30,13 @@
         "seed": 100,
         "device": "cuda:0",
         "path": "./results",
-        "name": "[EXP]Resnet18_cifar100_baseline",
+        "name": "test2",
         "num_epochs" : 200,
         "ep_prediction" : true,
-        "train": true
+        "train": false
     },
     "inspectionhandler": {
-        "enabled": false,
+        "enabled": true,
         "num_path": 4,
         "path_cost": [1,1,1,1],
         "phase": "test"
@@ -54,7 +54,7 @@
             }
         },
         "pretrained":{
-            "enabled": false,
+            "enabled": true,
             "fpath": "./results/trained_models/test"
         }
     }

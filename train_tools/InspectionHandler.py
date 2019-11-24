@@ -19,10 +19,10 @@ class InspectionHandler():
     2) Risk-Coverage Trade-off
     3) Confidence(Softmax Response) & Entropy distribution
     """
-    def __init__(self, Network, dataloaders, dataset_sizes, use_ensemble=True, num_classes=100, device='cuda:0', phase='test', num_path=1, path_cost=(1,), base_setting=True, tolerance=0.001, path='./results'):
+    def __init__(self, Network, dataloaders, dataset_sizes, use_ensemble=True, num_classes=100, device='cuda:0', phase='test', num_path=1, path_cost=[1,], base_setting=True, tolerance=0.001, path='./results'):
         """
         [args]      (int) num_path : the number of adaptive paths of inference 
-                    (tuple) path_cost : relative cost of path flops w.r.t. total flops ex) (0.3, 0.7, 1.15)
+                    (list) path_cost : relative cost of path flops w.r.t. total flops ex) (0.3, 0.7, 1.15)
                                        default is None for 'no adaptive computation option'
                     (float) tolerance : tolerance for the perfect learning
                     (bool) use_samll : True if using seperated small network as a single path 
@@ -33,14 +33,17 @@ class InspectionHandler():
         self.dataset_sizes = dataset_sizes
         self.device = device
         self.phase = phase
-        self.use_ensemble = 1 if use_ensemble else 0
         self.num_classes = num_classes
-        self.num_path = num_path + self.use_ensemble
+        self.num_path = num_path
         self.path_cost = path_cost
         self.path = path
         self.name = 'test' # default experiment name is 'test'
-        
+
         assert num_path == len(path_cost), 'paths should have corresponding cost!'
+        
+        if use_ensemble:
+            self.num_path += 1
+            self.path_cost.append(self.path_cost[-1])
         
         # build base inspection results
         self._result_dict_builder(phase=phase)
@@ -157,16 +160,16 @@ class InspectionHandler():
         [args]      (int) path_idx : 0 <= path index. < num_paths 
                     (str) phase : use test or valid set 'valid' or 'test'
                     
-        [returns]   (tuple) (max_sr_co, max_sr_inco) : lists of maximum softmax response for correct/incorrect samples
+        [returns]   (tuple) (conf_co, conf_inco) : lists of maximum softmax response for correct/incorrect samples
                     (tuple) (entropy_co, entropy_inco) : lists of entropy of top-5 softmax response for correct/incorrect samples
-                    (tuple) (correctness, confidence_sr, confidence_ent) : tensors of correctness & confidence values
+                    (tuple) (correctness, confidence, confidence_ent) : tensors of correctness & confidence values
         """
         # Set full path condition
         exit_cond = self._fullcond_setter(path_idx)
 
-        correctness, confidence_sr, confidence_ent = None, None, None
+        correctness, confidence, soft5_ent = None, None, None
         
-        max_sr_co, max_sr_inco = [], []
+        conf_co, conf_inco = [], []
         entropy_co, entropy_inco = [], []
         
         size = self.dataset_sizes[phase]
@@ -180,6 +183,7 @@ class InspectionHandler():
                 pred = self._prediction(outputs)
                 
                 # top-10 entropy of softmax resnponse
+                soft_out = outputs.softmax(dim=1)
                 top5_out, _ = torch.topk(soft_out, 5) # top-5 SR
                 entropy = (top5_out * -top5_out.log()).sum(dim=1) # top-5 SR entropy
 
@@ -188,12 +192,12 @@ class InspectionHandler():
                 inco_tensor = pred != labels
                                     
                 # get values for correct/incorrect samples
-                co_sr, inco_sr = conf[co_tensor].tolist(), conf[inco_tensor].tolist()
+                co_conf, inco_conf = conf[co_tensor].tolist(), conf[inco_tensor].tolist()
                 co_entropy, inco_entropy = entropy[co_tensor].tolist(), entropy[inco_tensor].tolist()
 
-                # update max_sr list
-                max_sr_co += co_sr
-                max_sr_inco += inco_sr
+                # update conf list
+                conf_co += co_conf
+                conf_inco += inco_conf
                 
                 # update entropy list
                 entropy_co += co_entropy
@@ -201,10 +205,10 @@ class InspectionHandler():
                 
                 # update correct / confidence
                 correctness = self._concat_tensor(correctness, co_tensor)
-                confidence_sr = self._concat_tensor(confidence_sr, conf)
-                confidence_ent = self._concat_tensor(confidence_ent, entropy)
+                confidence = self._concat_tensor(confidence, conf)
+                soft5_ent = self._concat_tensor(soft5_ent, entropy)
 
-        return (max_sr_co, max_sr_inco), (entropy_co, entropy_inco), (correctness, confidence_sr, confidence_ent)
+        return (conf_co, conf_inco), (entropy_co, entropy_inco), (correctness, confidence, soft5_ent)
     
     
     def _sr_rc_builder(self, tolerance=0.001, phase='test'):
@@ -215,11 +219,11 @@ class InspectionHandler():
                     (str) phase : use test or valid set 'valid' or 'test'
         """                    
         for path_idx in range(self.num_path):
-            (max_sr_co, max_sr_inco), (entropy_co, entropy_inco), \
+            (conf_co, conf_inco), (entropy_co, entropy_inco), \
             (correctness, confidence_sr, confidence_ent) = self.sr_rc_inspector(path_idx, phase)
 
-            self.result_dict['max_sr_dist_'+str(path_idx)][0] += max_sr_co
-            self.result_dict['max_sr_dist_'+str(path_idx)][1] += max_sr_inco
+            self.result_dict['conf_dist_'+str(path_idx)][0] += conf_co
+            self.result_dict['conf_dist_'+str(path_idx)][1] += conf_inco
             self.result_dict['entropy_dist_'+str(path_idx)][0] += entropy_co
             self.result_dict['entropy_dist_'+str(path_idx)][1] += entropy_inco
             
@@ -284,22 +288,28 @@ class InspectionHandler():
         empty_indices = torch.ones(x.size(0)).bool().to(self.device)
         
         ensemble = sum(exit)/len(exit)
-        
         for i in range(len(exit)):
             with torch.no_grad():
                 cond_up = confidence[i] > exit_cond[i]
                 cond_down = confidence[i] <= exit_cond[i]
                 
                 fill_indices = copy.deepcopy(empty_indices)
-                fill_indices[fill_indices][cond_down] = False # fill only cond_up
-                empty_indices[empty_indices][cond_up] = False # empty only cond_down
+                temp = fill_indices[fill_indices]
+                temp[cond_down] = False # fill only cond_up
+                fill_indices[fill_indices] = temp
+                
+                temp = empty_indices[empty_indices]
+                temp[cond_up] = False # empty only cond_down
+                empty_indices[empty_indices] = temp
                 
                 outputs[fill_indices], mark[fill_indices], conf[fill_indices] = \
                 exit[i][fill_indices], i, confidence[i][fill_indices]
+                if empty_indices.sum().item() == 0:
+                    return outputs, mark, conf
         
         outputs[empty_indices] = ensemble[empty_indices]
         mark[empty_indices] = len(exit)
-        confidence[empty_indices] = ensemble.softmax(dim=1).max(dim=1)[0]
+        conf[empty_indices] = ensemble.softmax(dim=1).max(dim=1)[0]
         
         return outputs, mark, conf
              
@@ -436,7 +446,7 @@ class InspectionHandler():
             result_dict['path_cond_' + str(i)] = []
             result_dict['risk'] = []
             result_dict['coverage'] = []
-            result_dict['max_sr_dist_'+ str(i)] = [[], []]  # [co_dist, inco_dist]
+            result_dict['conf_dist_'+ str(i)] = [[], []]  # [co_dist, inco_dist]
             result_dict['entropy_dist_'+ str(i)] = [[], []] # [co_dist, inco_dist]
 
         self.result_dict = result_dict

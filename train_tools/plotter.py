@@ -43,7 +43,7 @@ def RC_plotter(result_dict, num_path, tolerance=0.001, name='Risk-Coverage', xli
     for i in range(num_path):
         axs[i].set(title='Risk-Coverage Curve %d'%(i), xlabel='Risk(r)', ylabel='Coverage(c)')
         axs[i].plot(risk[i], coverage[i], color='red', linestyle='-', markersize=2, alpha=0.7)
-        axs[i].plot(risk[-1], coverage[-1], color='blue', linestyle='-', markersize=2, alpha=0.7)
+        #axs[i].plot(risk[-1], coverage[-1], color='blue', linestyle='-', markersize=2, alpha=0.7)
         axs[i].set_ylim(0.0, 1.0)
         axs[i].set_xlim(0, round(max(risk[i])+0.05, 4))
 
@@ -55,15 +55,15 @@ def RC_plotter(result_dict, num_path, tolerance=0.001, name='Risk-Coverage', xli
                         xytext=(0.001+0.005, perfect_coverage[i]-0.12), color='red', \
                      fontsize=10, weight='bold',arrowprops=dict(arrowstyle="->", color='red'))
                                                                 
-        axs[i].annotate('r*(%0.4f, %0.2f)'%(risk[-1][0], coverage[-1][0]), xy=(risk[-1][0], coverage[-1][0]),\
-                        xytext=(risk[-1][0]-0.01, coverage[-1][0]-0.1), color='blue', \
-             fontsize=10, weight='bold', arrowprops=dict(arrowstyle="->", color='blue'))
+        #axs[i].annotate('r*(%0.4f, %0.2f)'%(risk[-1][0], coverage[-1][0]), xy=(risk[-1][0], coverage[-1][0]),\
+         #               xytext=(risk[-1][0]-0.01, coverage[-1][0]-0.1), color='blue', \
+         #    fontsize=10, weight='bold', arrowprops=dict(arrowstyle="->", color='blue'))
 
-        axs[i].annotate('c*(%0.3f, %0.3f)'%(0.001, perfect_coverage[-1]), xy=(tolerance, perfect_coverage[-1]), \
-                        xytext=(0.001+0.005, perfect_coverage[-1]-0.12), color='blue', \
-                     fontsize=10, weight='bold',arrowprops=dict(arrowstyle="->", color='blue'))
+        #axs[i].annotate('c*(%0.3f, %0.3f)'%(0.001, perfect_coverage[-1]), xy=(tolerance, perfect_coverage[-1]), \
+         #               xytext=(0.001+0.005, perfect_coverage[-1]-0.12), color='blue', \
+         #            fontsize=10, weight='bold',arrowprops=dict(arrowstyle="->", color='blue'))
 
-        axs[i].legend(['path %d'%(i+1), 'Main path'], loc=4)
+        axs[i].legend(['path %d'%(i+1)], loc=4)
         axs[i].grid()
     
     fname = os.path.join(save_path, '{}_{}.png'.format(model_name, 'RC'))
@@ -77,16 +77,16 @@ def logit_plotter(result_dict, num_path, result_path='./results', model_name='mo
     directory_setter(save_path, make_dir)
     
     fig, (axs) = plt.subplots(num_path, 2, figsize=(10, 6*num_path))
-    fig.suptitle('logit_dist', fontsize=20)
+    fig.suptitle('Confidence Distribution', fontsize=20)
     
     for i in range(num_path):    
-        sr_dist, entropy_dist = result_dict['max_sr_dist_%d'%i], result_dict['entropy_dist_%d'%i],
+        sr_dist, entropy_dist = result_dict['conf_dist_%d'%i], result_dict['entropy_dist_%d'%i],
         (max_logit_co, max_logit_inco), (entropy_co, entropy_inco) = sr_dist, entropy_dist
         ax1, ax2 = axs[i][0], axs[i][1]
-        ax1.set(title='Max softmax outputs %d'%i, xlabel='softmax max value', ylabel='data count')
+        ax1.set(title='Path %d Confidence'%i, xlabel='confidence value', ylabel='data count')
         ax1.hist(max_logit_co, color='brown', bins=[0.0+x*0.005 for x in range(200)], alpha=0.5)
         ax1.hist(max_logit_inco, color='gray', bins=[0.0+x*0.005 for x in range(200)], alpha=0.5)
-        ax1.set_ylim(0, 800)
+        ax1.set_ylim(0, 600)
         ax1.set_xlim(0.2, 1)
         ax1.legend(['correct samples', 'incorrect samples'])
         ax1.grid()
@@ -94,12 +94,12 @@ def logit_plotter(result_dict, num_path, result_path='./results', model_name='mo
         ax2.set(title='Entropy of Top5 SR %d'%i, xlabel='Top5 softmax entropy', ylabel='data count')
         ax2.hist(entropy_co, color='brown', bins=[x*0.01 for x in range(450)], alpha=0.5)
         ax2.hist(entropy_inco, color='gray', bins=[x*0.01 for x in range(450)], alpha=0.5)
-        ax2.set_ylim(0, 800)
-        ax2.set_xlim(0, 2.5)
+        ax2.set_ylim(0, 600)
+        ax2.set_xlim(0, 1.5)
         ax2.legend(['correct samples', 'incorrect samples'])
         ax2.grid()
     
-    fname = os.path.join(save_path, '{}_{}.png'.format(model_name, 'logitdist'))
+    fname = os.path.join(save_path, '{}_{}.png'.format(model_name, 'confdist'))
     fig.savefig(fname)
     
     print('%s inspection_logitdist graph is saved' % model_name)    
@@ -112,7 +112,7 @@ def performance_plotter(result_dict, num_path, name='acc_score', result_path='./
     total_acc, flops_score = result_dict['total_acc'], result_dict['flops_score']
     fig=plt.figure(figsize=(8, 6), facecolor='w', edgecolor='k')    
     plt.scatter(flops_score, total_acc)
-    plt.title('Max softmax outputs')
+    plt.title('Flops vs Total Accuracy')
     plt.xlabel('Flops Score')
     plt.ylabel('Total Accuracy')
     plt.ylim(0, 1)
