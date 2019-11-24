@@ -56,22 +56,6 @@ class EP_Model(nn.Module):
             
         self.num_classes = param.num_classes
     
-    def ensemble_prediction(self, logits, features, hard_indices):
-        if self.selection:
-            confidence = self.selection(logits, features)
-        else:
-            probs = self.softmax(logits)
-            confidence, _ = torch.max(probs, dim=1)
-            
-        with torch.no_grad():
-            
-            easy_indices = copy.deepcopy(hard_indices)
-            
-            easy_indices[cond_down] = False
-            hard_indices[cond_up] = False
-            
-        return easy_indices, hard_indices
-    
     def forward(self, x):
         """
         mark value : 0 for Samll network, value bigger than 0 means each exit path number.
@@ -91,9 +75,9 @@ class EP_Model(nn.Module):
             if pos == 0:
                 logits, features, confidence = self.EPNet[idx](x)
                 
-                exit_logits.append(copy.deepcopy(logits.detach()))
-                exit_features.append(copy.deepcopy(features.detach()))
-                exit_confidence.append(copy.deepcopy(confidence.detach()))
+                exit_logits.append(logits)
+                exit_features.append(features)
+                exit_confidence.append(confidence)
                 
                 x = self.conv_stem(x)
                 
@@ -105,9 +89,9 @@ class EP_Model(nn.Module):
                 
                 logits, features, confidence = self.EPNet[idx](x)
                 
-                exit_logits.append(copy.deepcopy(logits.detach()))
-                exit_features.append(copy.deepcopy(features.detach()))
-                exit_confidence.append(copy.deepcopy(confidence.detach()))
+                exit_logits.append(logits)
+                exit_features.append(features)
+                exit_confidence.append(confidence)
                 
         # forward for remained block and pool_linear layer
         start_block = self.exit_block_pos[-1]
@@ -122,8 +106,8 @@ class EP_Model(nn.Module):
             probs = self.softmax(logits)
             confidence, _ = torch.max(probs, dim=1)
             
-        exit_logits.append(copy.deepcopy(logits.detach()))
-        exit_features.append(copy.deepcopy(features.detach()))
-        exit_confidence.append(copy.deepcopy(confidence.detach()))
+        exit_logits.append(logits)
+        exit_features.append(features)
+        exit_confidence.append(confidence)
         
         return exit_logits, exit_features, exit_confidence

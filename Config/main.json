@@ -6,10 +6,8 @@
         "valid_size": 5000
     },    
     "criterion": {
-        "algo": "epe",
+        "algo": "ce",
         "param":{
-            "kl": true,
-            "mse": true
         }
     },
     "optimizer": {
@@ -25,34 +23,39 @@
         "type" : "multistep",
         "param" : {
             "gamma" : 0.1,
-            "milestones": [100, 200]
+            "milestones": [75, 130, 180]
         }
     },
     "trainhandler": {
-        "seed": 2020,
+        "seed": 100,
         "device": "cuda:0",
         "path": "./results",
-        "name": "resnet18_cifar100_scan_adaptfpool_epe_250epoch",
-        "num_epochs" : 250,
-        "ep_prediction" : true
+        "name": "[EXP]Resnet18_cifar100_baseline",
+        "num_epochs" : 200,
+        "ep_prediction" : true,
+        "train": true
     },
     "inspectionhandler": {
-        "enabled": true,
+        "enabled": false,
         "num_path": 4,
         "path_cost": [1,1,1,1],
-        "use_small": false,
         "phase": "test"
     },
     "model": {
-        "model_type": "ep_resnet18",
-        
+        "BackboneNet": "resnet18",
+        "EPNet": "scan",
+        "param":{
+            "num_classes": 100,
+            "exit_block_pos": [1,2,3],
+            "ep": {
+                "stride": [8, 4, 2],
+                "conf_type": "sr",
+                "selection_type": "selection4"
+            }
+        },
         "pretrained":{
             "enabled": false,
-            "fpath": "./results/trained_models/resnet18_cifar100_pretrained"
-        },
-        "param": {
-            "exit_module": "scan",
-            "num_classes": 100
+            "fpath": "./results/trained_models/test"
         }
     }
 }

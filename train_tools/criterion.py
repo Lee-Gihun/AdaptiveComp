@@ -3,7 +3,21 @@ import torch.nn as nn
 import torch.nn.functional as F
 import math
 
-__all__ = ['SCANLoss', 'EPELoss', 'SoftSmoothingLoss']
+__all__ = ['CELoss', 'SCANLoss', 'EPELoss', 'SoftSmoothingLoss']
+
+
+
+class CELoss(nn.Module):
+    def __init__(self):
+        super(CELoss, self).__init__()
+        self.CE = nn.CrossEntropyLoss()
+
+            
+    def forward(self, outputs, target):
+        exit, feature, selection = outputs
+        total_loss = self.CE(exit[-1], target)
+        return total_loss
+
 
 
 class SCANLoss(nn.Module):
@@ -20,10 +34,6 @@ class SCANLoss(nn.Module):
             self.soft_smooth = SoftSmoothingLoss()
             
     def forward(self, outputs, target):
-        if type(outputs[0]) != list: # if test phase
-            loss = self.CE(outputs[0], target)
-            return loss
-        
         exit, feature, selection = outputs
 
         teacher_feature = feature[-1].detach()
@@ -63,7 +73,8 @@ class EPELoss(nn.Module):
         super(EPELoss, self).__init__()
         self.alpha, self.beta, self.hard, self.soft = alpha, beta, hard, soft
         self.CE = nn.CrossEntropyLoss()
-        self.KL = nn.KLDivLoss(reduction='batchmean')        
+        self.KL = nn.KLDivLoss(reduction='batchmean')
+        self.MSE = nn.MSELoss()
         if hard:
             self.hard_target = _target_setter(position_flops)
             self.hard_smooth = HardSmoothingLoss(soft=soft)
@@ -72,12 +83,8 @@ class EPELoss(nn.Module):
             self.soft_smooth = SoftSmoothingLoss()
             
     def forward(self, outputs, target):
-        if type(outputs[0]) != list:
-            total_loss = nn.CrossEntropyLoss()(outputs[0], target)
-            return total_loss
-        
         exit, feature, selection = outputs
-        total_loss = self.CE(exit[-1], targets)
+        total_loss = self.CE(exit[-1], target)
 
         for i in range(len(exit)-1):
             total_loss = (1-self.alpha)*self.CE(exit[i], target)
