@@ -19,7 +19,7 @@ class InspectionHandler():
     2) Risk-Coverage Trade-off
     3) Confidence(Softmax Response) & Entropy distribution
     """
-    def __init__(self, Network, dataloaders, dataset_sizes, use_ensemble=True, num_classes=100, device='cuda:0', phase='test', num_path=1, path_cost=[1,], base_setting=True, tolerance=0.001, path='./results'):
+    def __init__(self, Network, dataloaders, dataset_sizes, use_ensemble=True, num_classes=None, device='cuda:0', phase='test', num_path=1, path_cost=[1,], base_setting=True, tolerance=0.001, path='./results'):
         """
         [args]      (int) num_path : the number of adaptive paths of inference 
                     (list) path_cost : relative cost of path flops w.r.t. total flops ex) (0.3, 0.7, 1.15)
@@ -33,7 +33,7 @@ class InspectionHandler():
         self.dataset_sizes = dataset_sizes
         self.device = device
         self.phase = phase
-        self.num_classes = num_classes
+        self.num_classes = Network.num_classes if num_classes is None else 100
         self.num_path = num_path
         self.path_cost = path_cost
         self.path = path
@@ -106,7 +106,8 @@ class InspectionHandler():
     
     def save_inspection(self):
         result_dict_saver(self.result_dict, result_path=self.path, sub_loc='inspection', model_name=self.name)
-        RC_plotter(self.result_dict, num_path=self.num_path, result_path=self.path, model_name=self.name)
+        risk_xlim = 0.35 if self.num_classes==100 else 0.15
+        RC_plotter(self.result_dict, num_path=self.num_path, result_path=self.path, model_name=self.name, risk_xlim=risk_xlim)
         logit_plotter(self.result_dict, num_path=self.num_path, result_path=self.path, model_name=self.name)
         performance_plotter(self.result_dict, num_path=self.num_path, result_path=self.path, model_name=self.name)
 

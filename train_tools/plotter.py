@@ -31,7 +31,7 @@ def train_plotter(train, valid, test, mode, result_path='./results', model_name=
 
     
 def RC_plotter(result_dict, num_path, tolerance=0.001, name='Risk-Coverage', xlim=0.5, \
-               result_path='./results', model_name='model', make_dir=True):
+               result_path='./results', model_name='model', make_dir=True, risk_xlim=0.35):
     
     save_path = path_setter(result_path, 'inspection', model_name)
     directory_setter(save_path, make_dir)    
@@ -45,7 +45,7 @@ def RC_plotter(result_dict, num_path, tolerance=0.001, name='Risk-Coverage', xli
         axs[i].plot(risk[i], coverage[i], color='red', linestyle='-', markersize=2, alpha=0.7)
         #axs[i].plot(risk[-1], coverage[-1], color='blue', linestyle='-', markersize=2, alpha=0.7)
         axs[i].set_ylim(0.0, 1.0)
-        axs[i].set_xlim(0, round(max(risk[i])+0.05, 4))
+        axs[i].set_xlim(0, risk_xlim)
 
         axs[i].annotate('r*(%0.4f, %0.2f)'%(risk[i][0], coverage[i][0]), xy=(risk[i][0], coverage[i][0]),  \
                         xytext=(risk[i][0]-0.01, coverage[i][0]-0.1), color='red', \
