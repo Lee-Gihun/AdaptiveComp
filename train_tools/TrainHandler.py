@@ -239,7 +239,7 @@ class TrainHandler():
             self.scheduler.step()
         
         if self.dataset_sizes[phase] == 0:
-            return 0.0, 0.0
+            return running_loss, running_correct
             
         epoch_loss = running_loss / self.dataset_sizes[phase]
         if self.early_pred:
