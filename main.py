@@ -59,14 +59,8 @@ def _get_trainhandler(opt, model, dataloaders, dataset_sizes):
     
     # early_pred should be True if load EP_Model
     if opt.trainhandler.early_pred:
-    train_handler = TrainHandler(model, dataloaders, dataset_sizes, \
-                                 criterion, optimizer, scheduler, \
-                                 device=opt.trainhandler.device, \
-                                 path=opt.trainhandler.path)
-    
-    if opt.trainhandler.ep_prediction:
         train_handler.set_prediction(ep_prediction)
-    
+        
     train_handler.set_name(opt.trainhandler.name)
     
     return train_handler
@@ -78,20 +72,18 @@ def _get_inspectionhandler(opt, model, dataloaders, dataset_sizes):
                                            dataset_sizes, 
                                            num_path=opt.inspectionhandler.num_path, 
                                            path_cost=opt.inspectionhandler.path_cost, 
-                                           phase=opt.inspectionhandler.phase)
-    
-    inspection_handler = InspectionHandler(model, dataloaders, dataset_sizes, \
-                                           num_path=opt.inspectionhandler.num_path, \
-                                           path_cost=opt.inspectionhandler.path_cost, \
-                                           phase=opt.inspectionhandler.phase, \
+                                           phase=opt.inspectionhandler.phase,
                                            device=opt.trainhandler.device)
+    
     return inspection_handler
 
 def _get_visualizer(opt, model, dataloaders, dataset_sizes):
-    visualization_handler = VisualizationHandler(model, dataloaders, dataset_sizes, \
-                                              num_path=opt.inspectionhandler.num_path, \
-                                              phase=opt.inspectionhandler.phase, \
-                                              device=opt.trainhandler.device)
+    visualization_handler = VisualizationHandler(model, 
+                                                 dataloaders, 
+                                                 dataset_sizes,
+                                                 num_path=opt.inspectionhandler.num_path,
+                                                 phase=opt.inspectionhandler.phase,
+                                                 device=opt.trainhandler.device)
     return visualization_handler
 
 
@@ -109,17 +101,19 @@ def run(opt):
         train_handler.train_model(num_epochs=opt.trainhandler.num_epochs)
     
     train_handler.test_model()
+    print()
     
     if opt.inspectionhandler.enabled:  
         inspection_handler = _get_inspectionhandler(opt, model, dataloaders, dataset_sizes)
         inspection_handler.set_name(opt.trainhandler.name)
         inspection_handler.save_inspection()
+        print()
         
     if opt.visualizationhandler.enabled:
         visualization_handler = _get_visualizer(opt, model, dataloaders, dataset_sizes)
         visualization_handler.set_name(opt.trainhandler.name)
         visualization_handler.visualizer(mode=opt.visualizationhandler.mode, **opt.visualizationhandler.param)
-    
+        print()
     
 if __name__ == "__main__":
     # gets arguments from the json file
