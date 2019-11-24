@@ -68,11 +68,6 @@ class EP_Model(nn.Module):
         mark value : 0 for Samll network, value bigger than 0 means each exit path number.
         len(exit_outpus), len(exit_features) : should be same with len(exit_block_pos) + 1(backbone network output)
         """
-        device = str(self.BackboneNet.conv1.weight.device)
-        outputs = torch.zeros(x.size(0), self.num_classes).to(device)
-        mark = torch.zeros(x.size(0)).long().to(device)
-        hard_indices = torch.ones(x.size(0), dtype=torch.bool).to(device)
-        
         exit_logits, exit_features, exit_confidence = [], [], []
         if not self.use_small:
             x = self.BackboneNet.conv_stem(x)

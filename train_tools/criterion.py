@@ -21,11 +21,6 @@ class SCANLoss(nn.Module):
             
     def forward(self, outputs, target):
         logits, features, confidence = outputs
-
-        feature_loss = 0.0
-        teacher_feature = features[-1].detach()
-        for feature in features:
-            feature_loss += ((teacher_feature - feature)**2).sum()
         
         #   for deepest classifier
         total_loss = self.CE(logits[-1], target)
@@ -44,6 +39,11 @@ class SCANLoss(nn.Module):
                 total_loss += self.soft_smooth(logits[i], target)
 
         if self.alpha != 0:
+            feature_loss = 0.0
+            teacher_feature = features[-1].detach()
+            for feature in features:
+                feature_loss += ((teacher_feature - feature)**2).sum()
+            
             total_loss += self.beta * feature_loss
         
         return total_loss
