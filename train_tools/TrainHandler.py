@@ -342,7 +342,7 @@ class TrainHandler():
         
         if not pretrained:
             self.result_log['test_loss'] = test_loss
-            self.result_log['test_acc']  = tuple(test_acc)
+            self.result_log['test_acc']  = test_acc
             
             result_logger(self.result_log, self.num_epochs, self.path, self.name)
             if self.early_pred:

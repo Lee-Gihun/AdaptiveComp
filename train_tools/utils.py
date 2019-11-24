@@ -113,8 +113,8 @@ def result_logger(result_dict, epoch_num, result_path='./results', model_name='m
         for i in range(epoch_num):
             row = []
             
-            for item in result_dict.values():
-                if type(item) is not list:
+            for key, item in result_dict.items():
+                if type(item) is not list or 'test' in key:
                     row.append('')
 
                 elif item[i][1] is not None and type(item[i][1]) == float:
