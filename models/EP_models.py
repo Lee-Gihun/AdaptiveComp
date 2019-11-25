@@ -16,7 +16,9 @@ BACKBONE = {'resnet10': resnet10, 'resnet18': resnet18, 'resnet34':resnet34,
 EP = {'scan': SCAN, 'epe': EPE}
 
 SELECTION = {'selection1': Selection1, 'selection2': Selection2, 
-             'selection3': Selection3, 'selection4': Selection4}
+             'selection3': Selection3, 'selection4': Selection4,
+             'selection5': Selection5, 'selection6': Selection6,
+             'selection7': Selection7}
 
 
 class EP_Model(nn.Module):
