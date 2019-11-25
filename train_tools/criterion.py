@@ -94,7 +94,7 @@ class EPELoss(nn.Module):
     
     
 class HardSmoothingLoss(nn.Module):
-    def __init__(self, position_flops=(0.27, 0.52, 0.76), cover_lamb=32, soft=False):
+    def __init__(self, cover_lamb=32, soft=False):
         super(HardSmoothingLoss, self).__init__()
         self.ce = nn.CrossEntropyLoss() 
         if soft:
@@ -102,12 +102,11 @@ class HardSmoothingLoss(nn.Module):
         self.cover_lamb = cover_lamb
         
     def forward(self, logits, target, confidence, hard_target):
-        hard_clasloss = self.ce(logits*confidence.unsqueeze(1), target)
+        hard_clasloss = self.ce(logits*confidence, target)
         hard_coverloss = max(hard_target - confidence.mean(), 0)**2
         select_hard = hard_clasloss + self.cover_lamb * hard_coverloss
         return select_hard
 
-    
     
 class SoftSmoothingLoss(nn.Module):
     def __init__(self, classes=100, shift=1.0, temp=1.0, scale=1.0):
