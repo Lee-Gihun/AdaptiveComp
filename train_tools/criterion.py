@@ -41,7 +41,7 @@ class SCANLoss(nn.Module):
         if self.alpha != 0:
             feature_loss = 0.0
             teacher_feature = features[-1].detach()
-            for feature in features:
+            for feature in features[:-1]:
                 feature_loss += ((teacher_feature - feature)**2).sum()
             
             total_loss += self.beta * feature_loss
