@@ -7,13 +7,13 @@ __all__ = ['SCANLoss', 'EPELoss', 'SoftSmoothingLoss']
 
 
 class SCANLoss(nn.Module):
-    def __init__(self, alpha=0.5, beta=5e-7, hard=False, soft=False, position_flops=[0.27, 0.52, 0.76]):
+    def __init__(self, alpha=0.5, beta=5e-7, hard=False, hard_base=0.25, soft=False, position_flops=[0.27, 0.52, 0.76]):
         super(SCANLoss, self).__init__()
         self.alpha, self.beta, self.hard, self.soft = alpha, beta, hard, soft
         self.CE = nn.CrossEntropyLoss()
         
         if hard:
-            self.hard_target = _target_setter(position_flops)
+            self.hard_target = _target_setter(position_flops, hard_base)
             self.hard_smooth = HardSmoothingLoss(soft=soft)
             
         if soft:
@@ -131,11 +131,11 @@ class SoftSmoothingLoss(nn.Module):
 
 
     
-def _target_setter(position_flops):
+def _target_setter(position_flops, base=0.25):
     hard_target = []
         
     for F_i in position_flops:
-        target = min(math.sin(0.3+math.sin(F_i*math.pi/2)), 1)
+        target = min(math.sin(0.25+math.sin(F_i*math.pi/2)), 1)
         hard_target.append(target)
         
     return hard_target
