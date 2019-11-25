@@ -32,7 +32,7 @@
         "seed": 100,
         "device": "cuda:1",
         "path": "./results",
-        "name": "[EXP_SCAN]baseline_200",
+        "name": "[Res18_CIFAR100_SCAN]baseline_200",
         "num_epochs" : 200,
         "early_pred" : true
     },
