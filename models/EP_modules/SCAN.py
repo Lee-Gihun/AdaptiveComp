@@ -54,7 +54,7 @@ class SCAN(nn.Module):
     def forward(self, x):
         # attention
         att = self._relu(self._attbn0(self._attconv(x)))
-        att = self._relu(self._attbn1(self._attdeconv(att)))
+        att = self._attbn1(self._attdeconv(att))
         x = x * torch.sigmoid(att)
         
         # bottleneck
