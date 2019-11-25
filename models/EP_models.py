@@ -107,6 +107,7 @@ class EP_Model(nn.Module):
         else:
             probs = self.softmax(logits)
             confidence, _ = torch.max(probs, dim=1)
+            confidence = confidence.unsqueeze(1)
             
         exit_logits.append(logits)
         exit_features.append(features)

@@ -176,10 +176,10 @@ class VisualizationHandler():
                 if len(self.classes)==100:
                     if i % 10 == 0:
                         y_i = self.labels == i
-                        plt.scatter(x[y_i], y[y_i], label=self.classes[i], alpha=1)
+                        plt.scatter(x[y_i], y[y_i], label=self.classes[i], alpha=0.7)
                 else:
                     y_i = self.labels == i
-                    plt.scatter(x[y_i], y[y_i], label=self.classes[i], alpha=1)
+                    plt.scatter(x[y_i], y[y_i], label=self.classes[i], alpha=0.7)
                     
             plt.legend()
 
