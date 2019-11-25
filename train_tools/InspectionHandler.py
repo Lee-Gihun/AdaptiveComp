@@ -291,6 +291,7 @@ class InspectionHandler():
         ensemble = sum(exit)/len(exit)
         for i in range(len(exit)):
             with torch.no_grad():
+                confidence[i] = confidence[i].squeeze()
                 cond_up = confidence[i] > exit_cond[i]
                 cond_down = confidence[i] <= exit_cond[i]
                 
