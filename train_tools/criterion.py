@@ -7,7 +7,7 @@ __all__ = ['SCANLoss', 'EPELoss', 'SoftSmoothingLoss']
 
 
 class SCANLoss(nn.Module):
-    def __init__(self, alpha=0.5, beta=5e-7, hard=False, hard_base=0.25, soft=False, position_flops=[0.27, 0.52, 0.76]):
+    def __init__(self, alpha=0.5, beta=5e-7, hard=False, hard_base=0.25, soft=False, position_flops=[0.27, 0.52, 0.76, 1.0]):
         super(SCANLoss, self).__init__()
         self.alpha, self.beta, self.hard, self.soft = alpha, beta, hard, soft
         self.CE = nn.CrossEntropyLoss()
@@ -31,13 +31,16 @@ class SCANLoss(nn.Module):
 
         for i in range(0, len(logits)-1):
             total_loss += self.alpha * self._kldivloss(logits[i], teacher_output)
-            total_loss += (1 - self.alpha) * self.CE(logits[i], target) 
+            total_loss += (1 - self.alpha) * self.CE(logits[i], target)
+            
+        for i in range(0, len(logits)):        
             if self.hard:
                 total_loss += self.hard_smooth(logits[i], target, confidence[i], self.hard_target[i])
                 
             if (self.soft) and not (self.hard):
                 total_loss += self.soft_smooth(logits[i], target)
 
+                
         if self.alpha != 0:
             feature_loss = 0.0
             teacher_feature = features[-1].detach()
@@ -135,7 +138,7 @@ def _target_setter(position_flops, base=0.25):
     hard_target = []
         
     for F_i in position_flops:
-        target = min(math.sin(0.25+math.sin(F_i*math.pi/2)), 1)
+        target = min(math.sin(0.3+math.sin(F_i*math.pi/2)), 1)
         hard_target.append(target)
         
     return hard_target
