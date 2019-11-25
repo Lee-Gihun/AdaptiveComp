@@ -140,7 +140,7 @@ def result_logger(result_dict, epoch_num, result_path='./results', model_name='m
         if type(result_dict['test_acc']) == float:
             f.write(','*sep + '%0.5f, %0.5f' % (result_dict['test_loss'], result_dict['test_acc']))
         else:
-            f.write(','*sep + '%0.5f, [' % result_dict['test_loss'] + ('%0.5f '*len(result_dict['test_acc']) % result_dict['test_acc'])[:-1] + ']')
+            f.write(','*sep + '%0.5f, [' % result_dict['test_loss'] + ('%0.5f '*len(result_dict['test_acc']) % tuple(result_dict['test_acc']))[:-1] + ']')
         
     print('results are logged at: \'%s' % save_path)    
 
