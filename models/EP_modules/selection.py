@@ -20,13 +20,15 @@ class Selection2(nn.Module):
     def __init__(self, num_classes=100, planes=512):
         super(Selection2, self).__init__()
         self._relu = nn.ReLU(inplace=True)
-        self._fc1 = nn.Linear(num_classes, 100)
-        self._fc2 = nn.Linear(100, 1)
+        self._fc1 = nn.Linear(num_classes, num_classes)
+        self._bn = nn.BatchNorm1d(num_classes)
+        self._fc2 = nn.Linear(num_classes, 1)
         self._sigmoid = nn.Sigmoid()
         
     def forward(self, logits, features):
         x = self._fc1(logits)
         x = self._relu(x)
+        x = self._bn(x)
         x = self._fc2(x)
         x = self._sigmoid(x)
         return x
@@ -36,13 +38,15 @@ class Selection3(nn.Module):
     def __init__(self, num_classes=100, planes=512):
         super(Selection3, self).__init__()
         self._relu = nn.ReLU(inplace=True)
-        self._fc1 = nn.Linear(planes, 100)
-        self._fc2 = nn.Linear(100, 1)
+        self._fc1 = nn.Linear(planes, 512)
+        self._bn = nn.BatchNorm1d(512)
+        self._fc2 = nn.Linear(512, 1)
         self._sigmoid = nn.Sigmoid()
         
     def forward(self, logits, features):
         x = self._fc1(features)
         x = self._relu(x)
+        x = self._bn(x)
         x = self._fc2(x)
         x = self._sigmoid(x)
         return x
@@ -52,14 +56,16 @@ class Selection4(nn.Module):
     def __init__(self, num_classes=100, planes=512):
         super(Selection4, self).__init__()
         self._relu = nn.ReLU(inplace=True)
-        self._fc1 = nn.Linear(planes + num_classes, 100)
-        self._fc2 = nn.Linear(100, 1)
+        self._fc1 = nn.Linear(planes + num_classes, 512)
+        self._bn = nn.BatchNorm1d(512)
+        self._fc2 = nn.Linear(512, 1)
         self._sigmoid = nn.Sigmoid()
         
     def forward(self, logits, features):
         x = torch.cat((features, logits), dim=1)
         x = self._fc1(x)
         x = self._relu(x)
+        x = self._bn(x)
         x = self._fc2(x)
         x = self._sigmoid(x)
         return x
@@ -83,6 +89,7 @@ class Selection6(nn.Module):
         super(Selection6, self).__init__()
         self._relu = nn.ReLU(inplace=True)
         self._fc1 = nn.Linear(5, 5)
+        self._bn = nn.BatchNorm1d(5)
         self._fc2 = nn.Linear(5, 1)
         self._sigmoid = nn.Sigmoid()
         
@@ -90,6 +97,7 @@ class Selection6(nn.Module):
         logits = logits.topk(k=5, largest=True, sorted=True)[0]
         x = self._fc1(logits)
         x = self._relu(x)
+        x = self._bn(x)
         x = self._fc2(x)
         x = self._sigmoid(x)
         return x
@@ -99,8 +107,9 @@ class Selection7(nn.Module):
     def __init__(self, num_classes=100, planes=512):
         super(Selection7, self).__init__()
         self._relu = nn.ReLU(inplace=True)
-        self._fc1 = nn.Linear(planes + 5, 100)
-        self._fc2 = nn.Linear(100, 1)
+        self._fc1 = nn.Linear(planes + 5, 512)
+        self._bn = nn.BatchNorm1d(512)
+        self._fc2 = nn.Linear(512, 1)
         self._sigmoid = nn.Sigmoid()
         
     def forward(self, logits, features):
@@ -108,6 +117,7 @@ class Selection7(nn.Module):
         x = torch.cat((features, logits), dim=1)
         x = self._fc1(x)
         x = self._relu(x)
+        x = self._bn(x)
         x = self._fc2(x)
         x = self._sigmoid(x)
         return x

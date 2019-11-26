@@ -99,17 +99,31 @@ class EPELoss(nn.Module):
 class HardSmoothingLoss(nn.Module):
     def __init__(self, cover_lamb=32, soft=False):
         super(HardSmoothingLoss, self).__init__()
-        self.ce = nn.CrossEntropyLoss() 
+        self.ce = nn.CrossEntropyLoss(reduction='none') 
         if soft:
             self.ce = SoftSmoothingLoss()
         self.cover_lamb = cover_lamb
         
     def forward(self, logits, target, confidence, hard_target):
-        hard_clasloss = self.ce(logits*confidence, target)
-        hard_coverloss = max(hard_target - confidence.mean(), 0)**2
-        select_hard = hard_clasloss + self.cover_lamb * hard_coverloss
-        return select_hard
+        """
+        sel_risk = self.ce(logits, target) * confidence
+        sel_risk = sel_risk.mean()
 
+        emp_coverage = confidence.mean()
+
+        return (sel_risk/emp_coverage +  self.cover_lamb*max(hard_target - emp_coverage, 0) ** 2)
+        """
+        sel_log_prob = -1.0 * F.log_softmax(logits, 1) * confidence
+        sel_risk = sel_log_prob.gather(1, target.unsqueeze(1))
+        sel_risk = sel_risk.mean()
+
+        emp_coverage = confidence.mean()
+
+        return sel_risk / emp_coverage + self.cover_lamb * max(hard_target - emp_coverage, 0) ** 2 
+
+
+    
+    
     
 class SoftSmoothingLoss(nn.Module):
     def __init__(self, classes=100, shift=1.0, temp=1.0, scale=1.0):
@@ -138,7 +152,7 @@ def _target_setter(position_flops, base=0.25):
     hard_target = []
         
     for F_i in position_flops:
-        target = min(math.sin(0.3+math.sin(F_i*math.pi/2)), 1)
+        target = min(math.sin(base+math.sin(F_i*math.pi/2)), 1)
         hard_target.append(target)
         
     return hard_target

@@ -252,7 +252,7 @@ class InspectionHandler():
         size = self.dataset_sizes[phase]
 
         sorted_confidence, _ = confidence.sort()
-        grid_list = [sorted_confidence[100*x] for x in range(int(size//100)-1)]
+        grid_list = [sorted_confidence[10*x] for x in range(int(size//10)-1)]
         grid_list.insert(0, 0) # make sure full coverage threshold exists
         
         for grid in grid_list:
@@ -262,9 +262,9 @@ class InspectionHandler():
             
             risk_elem = 1 if count == 0 else round(1-correct/count, 4) # selective risk
             coverage_elem = round(count/size, 4) # coverage
-            
-            risk.append(risk_elem)
-            coverage.append(coverage_elem)
+            if risk_elem < 0.4:
+                risk.append(risk_elem)
+                coverage.append(coverage_elem)
     
         for i, risk_elem in enumerate(risk):
             if risk_elem <= tolerance:
