@@ -6,7 +6,9 @@ from .selection import *
 __all__ = ['SCAN']
 
 SELECTION = {'selection1': Selection1, 'selection2': Selection2, 
-             'selection3': Selection3, 'selection4': Selection4}
+             'selection3': Selection3, 'selection4': Selection4,
+             'selection5': Selection5, 'selection6': Selection6,
+             'selection7': Selection7}
 
 
 def conv3x3(in_planes, out_planes, stride=1, groups=1, padding=1):
