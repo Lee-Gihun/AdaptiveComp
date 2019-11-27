@@ -5,8 +5,9 @@ import torch
 import torch.nn as nn
 import numpy as np
 import matplotlib.pyplot as plt
+from pthflops import count_ops
 
-__all__ = ['ConfLoader', 'model_saver', 'result_logger', 'result_dict_saver', 'EarlyStopping', 'ConfCond']
+__all__ = ['ConfLoader', 'model_saver', 'result_logger', 'result_dict_saver', 'EarlyStopping', 'ConfCond', 'counter']
 
 
 class ConfLoader:
@@ -201,3 +202,18 @@ class ConfCond(nn.Module):
         cond_down = (confidence <= self.thres)
         
         return cond_up, cond_down
+    
+
+
+def counter(model, sample, verbose=True):
+    model = model.eval()
+    
+    M = 1000000
+    params_num = 0
+    for params in model.parameters():
+        params_num += params.view(-1).shape[0]    
+
+    flops = count_ops(model, sample, verbose=verbose)
+    print("flops: {:.4f}M, params: {:.4f}M".format(flops/1000000, params_num/1000000))
+    
+    return params, flops

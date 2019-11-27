@@ -105,6 +105,11 @@ def run(opt):
     
     if opt.inspectionhandler.enabled:  
         inspection_handler = _get_inspectionhandler(opt, model, dataloaders, dataset_sizes)
+        
+        #if opt.inspectionhandler.grid_search.enabled:
+        #    inspection_handler.grid_inspector(start_cond=opt.inspectionhandler.grid_search.start_cond, 
+        #                                      grid=opt.inspectionhandler.grid_search.grid)
+            
         inspection_handler.set_name(opt.trainhandler.name)
         inspection_handler.save_inspection()
         print()
