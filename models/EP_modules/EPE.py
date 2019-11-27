@@ -1,30 +1,35 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from .selection import *
+
 
 __all__ = ['EPE']
 
 SELECTION = {'selection1': Selection1, 'selection2': Selection2, 
-             'selection3': Selection3, 'selection4': Selection4}
+             'selection3': Selection3, 'selection4': Selection4,
+             'selection5': Selection5, 'selection6': Selection6,
+             'selection7': Selection7}
 
 
-def conv3x3(in_planes, out_planes, stride=1, groups=1, padding=1):
+
+def conv3x3(in_planes, out_planes, stride=1, groups=1, padding=1, bias=True):
     """3x3 convolution with padding"""
     return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride,
-                     padding=padding, groups=groups)
+                     padding=padding, groups=groups, bias=bias)
 
 
-def conv1x1(in_planes, out_planes, stride=1):
+def conv1x1(in_planes, out_planes, stride=1, bias=True):
     """1x1 convolution"""
-    return nn.Conv2d(in_planes, out_planes, kernel_size=1, stride=stride)
+    return nn.Conv2d(in_planes, out_planes, kernel_size=1, stride=stride, bias=bias)
 
 
 class EPE(nn.Module):
     """
     EPE Module
     """
-    def __init__(self, channels, final_channels=512, stride=2, expansion=2, num_classes=100, conf_type='selection', selection_type='selection1'):
+    def __init__(self, channels, final_channels=512, stride=2, expansion=3, se=0.15, num_classes=100, conf_type='selection', selection_type='selection1'):
         super(EPE, self).__init__()
         if conf_type == 'selection':
             self._selection = SELECTION[selection_type](num_classes, final_channels)
@@ -35,16 +40,21 @@ class EPE(nn.Module):
         # activation func
         self._relu = nn.ReLU(inplace=True)
         
+        # SE module
+        num_squeezed_channels = max(1, int(channels*se))
+        self._se_reduce = conv1x1(channels*expansion, num_squeezed_channels)
+        self._se_expand = conv1x1(num_squeezed_channels, channels*expansion)
+        
         # expansion module
         mid_channels = channels * expansion
-        self._expansion_conv = conv1x1(channels, mid_channels, stride=1)
+        self._expansion_conv = conv1x1(channels, mid_channels, stride=1, bias=False)
         self._bn0 = nn.BatchNorm2d(mid_channels)
         
         # conv module
         self._depthwise_conv = nn.Conv2d(mid_channels, mid_channels, kernel_size=stride, stride=stride, padding=1, bias=True, groups=mid_channels)
         self._bn1 = nn.BatchNorm2d(mid_channels)
         
-        self._projection_conv = conv1x1(mid_channels, final_channels, stride=1)
+        self._projection_conv = conv1x1(mid_channels, final_channels, stride=1, bias=False)
         self._bn2 = nn.BatchNorm2d(final_channels)
         
         # classifier module
@@ -56,6 +66,11 @@ class EPE(nn.Module):
         # conv
         x = self._relu(self._bn0(self._expansion_conv(x)))
         x = self._relu(self._bn1(self._depthwise_conv(x)))
+        
+        x_squeezed = F.adaptive_avg_pool2d(x, 1)
+        x_squeezed = self._se_expand(self._relu(self._se_reduce(x_squeezed)))
+        x = torch.sigmoid(x_squeezed) * x
+        
         features = self._relu(self._bn2(self._projection_conv(x)))
 
         # classifier
