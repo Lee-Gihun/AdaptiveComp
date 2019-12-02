@@ -297,21 +297,23 @@ class InspectionHandler():
                 
                 fill_indices = copy.deepcopy(empty_indices)
                 temp = fill_indices[fill_indices]
-                temp[cond_down] = False # fill only cond_up
+                temp[cond_down[fill_indices]] = False # fill only cond_up
                 fill_indices[fill_indices] = temp
                 
                 temp = empty_indices[empty_indices]
-                temp[cond_up] = False # empty only cond_down
+                temp[cond_up[empty_indices]] = False # empty only cond_down
                 empty_indices[empty_indices] = temp
                 
                 outputs[fill_indices], mark[fill_indices], conf[fill_indices] = \
                 exit[i][fill_indices], i, confidence[i][fill_indices]
                 if empty_indices.sum().item() == 0:
                     return outputs, mark, conf
+        #print(fill_indices)
+        #print(empty_indices)
         
         outputs[empty_indices] = ensemble[empty_indices]
         mark[empty_indices] = len(exit)
-        conf[empty_indices] = ensemble.softmax(dim=1).max(dim=1)[0]
+        conf[empty_indices] = ensemble.softmax(dim=1).max(dim=1)[0][empty_indices]
         
         return outputs, mark, conf
              
